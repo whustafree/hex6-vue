@@ -7,6 +7,7 @@ import LoginView from './views/LoginView.vue'
 import DashboardView from './views/DashboardView.vue'
 import AddTcgView from './views/AddTcgView.vue' // Importar arriba
 import AddVitrinaView from './views/AddVitrinaView.vue'
+import AddLfgView from './views/AddLfgView.vue' // Importar al inicio
 
 const routes = [
   { path: '/', component: HomeView },
@@ -17,6 +18,7 @@ const routes = [
   { path: '/dashboard', component: DashboardView },
   { path: '/add-tcg', component: AddTcgView },
   { path: '/add-vitrina', component: AddVitrinaView },
+  { path: '/add-lfg', component: AddLfgView },
   
 ]
 
