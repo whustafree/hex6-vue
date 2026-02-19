@@ -6,6 +6,7 @@ import LfgView from './views/LfgView.vue'
 import LoginView from './views/LoginView.vue'
 import DashboardView from './views/DashboardView.vue'
 import AddTcgView from './views/AddTcgView.vue' // Importar arriba
+import AddVitrinaView from './views/AddVitrinaView.vue'
 
 const routes = [
   { path: '/', component: HomeView },
@@ -15,6 +16,8 @@ const routes = [
   { path: '/login', component: LoginView },
   { path: '/dashboard', component: DashboardView },
   { path: '/add-tcg', component: AddTcgView },
+  { path: '/add-vitrina', component: AddVitrinaView },
+  
 ]
 
 const router = createRouter({
