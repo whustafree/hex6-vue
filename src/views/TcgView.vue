@@ -10,16 +10,18 @@ const cargando = ref(false)
 const titulo = ref('')
 const juego = ref('Pokémon')
 const precio = ref('')
-const archivoImagen = ref(null) // Guardará el archivo real
+const archivoImagen = ref(null) // Esto guardará el archivo real
 const telefono = ref('')
 
 onMounted(async () => {
   const { data: { user } } = await supabase.auth.getUser()
   const { data } = await supabase.from('profiles').select('phone').eq('id', user.id).single()
-  if (data) telefono.value = data.phone || ''
+  if (data) {
+    telefono.value = data.phone || ''
+  }
 })
 
-// Función cuando seleccionas un archivo
+// Función para cuando seleccionas un archivo de tu PC/Celular
 const manejarArchivo = (event) => {
   archivoImagen.value = event.target.files[0]
 }
@@ -34,10 +36,10 @@ const guardarCarta = async () => {
   try {
     const { data: { user } } = await supabase.auth.getUser()
 
-    // 1. Subir la imagen a Supabase Storage
+    // 1. Subir la imagen a Supabase
     const fileExt = archivoImagen.value.name.split('.').pop()
-    const fileName = `${Date.now()}.${fileExt}` // Nombre único
-    const filePath = `${user.id}/${fileName}` // Organizado por usuario
+    const fileName = `${Date.now()}.${fileExt}`
+    const filePath = `${user.id}/${fileName}`
 
     const { error: uploadError } = await supabase.storage
       .from('imagenes_hex6')
@@ -45,27 +47,27 @@ const guardarCarta = async () => {
 
     if (uploadError) throw uploadError
 
-    // 2. Obtener el link público de la imagen recién subida
+    // 2. Obtener el link de la imagen subida
     const { data: urlData } = supabase.storage
       .from('imagenes_hex6')
       .getPublicUrl(filePath)
       
     const imagen_url = urlData.publicUrl
 
-    // 3. Guardar todo en la base de datos (con el link)
+    // 3. Guardar en la base de datos
     const { error: dbError } = await supabase.from('tcg_exchange').insert([{ 
       titulo: titulo.value, 
       juego: juego.value, 
       precio: parseInt(precio.value), 
-      imagen_url: imagen_url, // Usamos la URL generada
+      imagen_url: imagen_url, 
       telefono: telefono.value, 
       user_id: user.id 
     }])
 
     if (dbError) throw dbError
     
-    alert("¡Carta publicada con foto real!")
-    router.push('/tcg')
+    // 4. CAMBIO AQUI: Te manda al Dashboard para que veas tu publicación
+    router.push('/dashboard')
 
   } catch (error) {
     alert('Error: ' + error.message)
@@ -103,14 +105,14 @@ const guardarCarta = async () => {
           <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">Precio</label>
           <input v-model="precio" type="number" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-2xl text-white">
         </div>
-
+        
         <div class="md:col-span-2">
           <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">Foto de la Carta</label>
           <div class="relative w-full bg-slate-900 border-2 border-dashed border-slate-700 hover:border-sky-500 p-6 rounded-2xl text-center cursor-pointer transition-colors">
             <input type="file" accept="image/*" @change="manejarArchivo" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
             <UploadCloud class="w-8 h-8 text-slate-500 mx-auto mb-2" />
             <p class="text-sm font-bold text-slate-400">
-              {{ archivoImagen ? archivoImagen.name : 'Haz clic o arrastra tu foto aquí' }}
+              {{ archivoImagen ? archivoImagen.name : 'Haz clic para seleccionar tu foto' }}
             </p>
           </div>
         </div>
@@ -119,7 +121,7 @@ const guardarCarta = async () => {
           <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">WhatsApp</label>
           <input v-model="telefono" type="text" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-2xl text-white">
         </div>
-        <button type="submit" :disabled="cargando" class="md:col-span-2 w-full bg-sky-600 hover:bg-sky-500 py-5 rounded-2xl font-black uppercase text-white flex justify-center gap-2">
+        <button type="submit" :disabled="cargando" class="md:col-span-2 w-full bg-sky-600 hover:bg-sky-500 py-5 rounded-2xl font-black uppercase text-white flex justify-center items-center gap-2">
           <Loader2 v-if="cargando" class="w-6 h-6 animate-spin" />
           <span v-else>Publicar Ahora</span>
         </button>
