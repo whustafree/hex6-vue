@@ -10,18 +10,15 @@ const cargando = ref(false)
 const titulo = ref('')
 const juego = ref('Pokémon')
 const precio = ref('')
-const archivoImagen = ref(null) // Esto guardará el archivo real
+const archivoImagen = ref(null) 
 const telefono = ref('')
 
 onMounted(async () => {
   const { data: { user } } = await supabase.auth.getUser()
   const { data } = await supabase.from('profiles').select('phone').eq('id', user.id).single()
-  if (data) {
-    telefono.value = data.phone || ''
-  }
+  if (data) telefono.value = data.phone || ''
 })
 
-// Función para cuando seleccionas un archivo de tu PC/Celular
 const manejarArchivo = (event) => {
   archivoImagen.value = event.target.files[0]
 }
@@ -36,7 +33,7 @@ const guardarCarta = async () => {
   try {
     const { data: { user } } = await supabase.auth.getUser()
 
-    // 1. Subir la imagen a Supabase
+    // Subir la imagen a Supabase Storage
     const fileExt = archivoImagen.value.name.split('.').pop()
     const fileName = `${Date.now()}.${fileExt}`
     const filePath = `${user.id}/${fileName}`
@@ -47,14 +44,13 @@ const guardarCarta = async () => {
 
     if (uploadError) throw uploadError
 
-    // 2. Obtener el link de la imagen subida
     const { data: urlData } = supabase.storage
       .from('imagenes_hex6')
       .getPublicUrl(filePath)
       
     const imagen_url = urlData.publicUrl
 
-    // 3. Guardar en la base de datos
+    // Guardar en la base de datos
     const { error: dbError } = await supabase.from('tcg_exchange').insert([{ 
       titulo: titulo.value, 
       juego: juego.value, 
@@ -66,11 +62,11 @@ const guardarCarta = async () => {
 
     if (dbError) throw dbError
     
-    // 4. CAMBIO AQUI: Te manda al Dashboard para que veas tu publicación
+    // Volver al Panel
     router.push('/dashboard')
 
   } catch (error) {
-    alert('Error: ' + error.message)
+    alert('Error al publicar: ' + error.message)
   } finally {
     cargando.value = false
   }
