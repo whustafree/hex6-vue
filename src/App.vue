@@ -1,6 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Hexagon, LogOut, User, Layers, Gem, Users } from 'lucide-vue-next'
+import { 
+  Hexagon, 
+  LogOut, 
+  User, 
+  Layers, 
+  Gem, 
+  Users, 
+  LayoutDashboard 
+} from 'lucide-vue-next'
 import { supabase } from './supabase'
 import { useRouter } from 'vue-router'
 
@@ -39,6 +47,7 @@ const cerrarSesion = async () => {
         </router-link>
 
         <div class="flex items-center gap-4 md:gap-8">
+          
           <div class="hidden md:flex gap-6 mr-4 border-r border-slate-800 pr-6">
             <router-link to="/tcg" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-sky-400">
               <Layers class="w-3 h-3" /> TCG
@@ -52,11 +61,19 @@ const cerrarSesion = async () => {
           </div>
 
           <div v-if="usuario" class="flex items-center gap-3">
-            <div class="hidden sm:block text-right">
-              <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Bienvenido</p>
-              <p class="text-xs font-black text-sky-400">{{ usuario.email.split('@')[0] }}</p>
-            </div>
-            <button @click="cerrarSesion" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2.5 rounded-xl transition-all border border-red-500/20">
+            <router-link to="/dashboard" class="flex items-center gap-3 group bg-slate-900/50 p-1.5 pr-4 rounded-xl border border-slate-800 hover:border-sky-500 transition-all">
+              <div class="bg-sky-500/20 p-2 rounded-lg group-hover:bg-sky-500 transition-colors">
+                <LayoutDashboard class="w-4 h-4 text-sky-400 group-hover:text-white" />
+              </div>
+              <div class="hidden sm:block text-left">
+                <p class="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-none mb-1">Mi Panel</p>
+                <p class="text-xs font-black text-slate-200 group-hover:text-sky-400 transition-colors truncate max-w-[100px]">
+                  {{ usuario.email.split('@')[0] }}
+                </p>
+              </div>
+            </router-link>
+
+            <button @click="cerrarSesion" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2.5 rounded-xl transition-all border border-red-500/20" title="Cerrar Sesión">
               <LogOut class="w-5 h-5" />
             </button>
           </div>
@@ -70,21 +87,45 @@ const cerrarSesion = async () => {
     </nav>
 
     <main class="max-w-6xl mx-auto p-4 mt-6">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </main>
 
   </div>
 </template>
 
 <style>
-/* Animación suave al cambiar de página */
+/* Animación de transición entre páginas */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.fade-enter-from,
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
 .fade-leave-to {
   opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* Scrollbar personalizada estilo Geek */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #38bdf8;
 }
 </style>
