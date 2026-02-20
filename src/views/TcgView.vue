@@ -1,127 +1,82 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { supabase } from '../supabase'
-import { useRouter } from 'vue-router'
-import { PlusCircle, ArrowLeft, Loader2, UploadCloud } from 'lucide-vue-next'
+import { Search, Layers, Loader2 } from 'lucide-vue-next'
 
-const router = useRouter()
-const cargando = ref(false)
+const tcgItems = ref([])
+const cargando = ref(true)
+const busqueda = ref('') // Aquí guardamos lo que el usuario escribe
 
-const titulo = ref('')
-const juego = ref('Pokémon')
-const precio = ref('')
-const archivoImagen = ref(null) 
-const telefono = ref('')
-
+// Traer TODAS las cartas
 onMounted(async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data } = await supabase.from('profiles').select('phone').eq('id', user.id).single()
-  if (data) telefono.value = data.phone || ''
-})
-
-const manejarArchivo = (event) => {
-  archivoImagen.value = event.target.files[0]
-}
-
-const guardarCarta = async () => {
-  if (!archivoImagen.value) {
-    alert("Por favor, selecciona una imagen de tu carta.")
-    return
-  }
-
-  cargando.value = true
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-
-    // Subir la imagen a Supabase Storage
-    const fileExt = archivoImagen.value.name.split('.').pop()
-    const fileName = `${Date.now()}.${fileExt}`
-    const filePath = `${user.id}/${fileName}`
-
-    const { error: uploadError } = await supabase.storage
-      .from('imagenes_hex6')
-      .upload(filePath, archivoImagen.value)
-
-    if (uploadError) throw uploadError
-
-    const { data: urlData } = supabase.storage
-      .from('imagenes_hex6')
-      .getPublicUrl(filePath)
-      
-    const imagen_url = urlData.publicUrl
-
-    // Guardar en la base de datos
-    const { error: dbError } = await supabase.from('tcg_exchange').insert([{ 
-      titulo: titulo.value, 
-      juego: juego.value, 
-      precio: parseInt(precio.value), 
-      imagen_url: imagen_url, 
-      telefono: telefono.value, 
-      user_id: user.id 
-    }])
-
-    if (dbError) throw dbError
+    const { data } = await supabase
+      .from('tcg_exchange')
+      .select('*')
+      .order('id', { ascending: false })
     
-    // Volver al Panel
-    router.push('/dashboard')
-
+    if (data) tcgItems.value = data
   } catch (error) {
-    alert('Error al publicar: ' + error.message)
+    console.error('Error:', error)
   } finally {
     cargando.value = false
   }
+})
+
+// Esta función filtra las cartas en tiempo real
+const cartasFiltradas = computed(() => {
+  return tcgItems.value.filter(carta => 
+    carta.titulo.toLowerCase().includes(busqueda.value.toLowerCase()) ||
+    carta.juego.toLowerCase().includes(busqueda.value.toLowerCase())
+  )
+})
+
+// Formato de precio chileno
+const formatearPrecio = (precio) => {
+  return new Intl.NumberFormat('es-CL').format(precio)
 }
 </script>
 
 <template>
-  <div class="max-w-2xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-    <button @click="router.back()" class="flex items-center gap-2 text-slate-500 hover:text-white mb-6 font-bold text-sm uppercase">
-      <ArrowLeft class="w-4 h-4" /> Volver
-    </button>
-    <div class="bg-slate-800 rounded-3xl border border-slate-700 p-8 shadow-2xl">
-      <div class="flex items-center gap-4 mb-8">
-        <div class="bg-sky-500/20 p-3 rounded-2xl"><PlusCircle class="w-8 h-8 text-sky-400" /></div>
-        <div>
-          <h2 class="text-2xl font-black italic text-white uppercase">Publicar Carta</h2>
-          <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Mercado TCG</p>
-        </div>
+  <div class="space-y-8 pb-20 animate-in fade-in duration-500">
+    
+    <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-lg">
+      <h2 class="text-3xl font-black italic text-sky-400 flex items-center gap-3 mb-6 uppercase">
+        <Layers class="w-8 h-8" /> Mercado TCG Completo
+      </h2>
+      
+      <div class="relative">
+        <Search class="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+        <input 
+          v-model="busqueda"
+          type="text" 
+          placeholder="Buscar carta o juego (Ej: Pikachu, Yugi-Oh)..." 
+          class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-sky-500 transition-colors"
+        >
       </div>
-      <form @submit.prevent="guardarCarta" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="md:col-span-2">
-          <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">Nombre de la carta</label>
-          <input v-model="titulo" type="text" placeholder="Ej: Charizard VMAX" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-2xl text-white">
-        </div>
-        <div>
-          <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">Juego</label>
-          <select v-model="juego" class="w-full bg-slate-900 border border-slate-700 p-4 rounded-2xl text-white">
-            <option>Pokémon</option><option>Yu-Gi-Oh!</option><option>Magic</option><option>Otros</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">Precio</label>
-          <input v-model="precio" type="number" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-2xl text-white">
-        </div>
-        
-        <div class="md:col-span-2">
-          <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">Foto de la Carta</label>
-          <div class="relative w-full bg-slate-900 border-2 border-dashed border-slate-700 hover:border-sky-500 p-6 rounded-2xl text-center cursor-pointer transition-colors">
-            <input type="file" accept="image/*" @change="manejarArchivo" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-            <UploadCloud class="w-8 h-8 text-slate-500 mx-auto mb-2" />
-            <p class="text-sm font-bold text-slate-400">
-              {{ archivoImagen ? archivoImagen.name : 'Haz clic para seleccionar tu foto' }}
-            </p>
-          </div>
-        </div>
-
-        <div class="md:col-span-2">
-          <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">WhatsApp</label>
-          <input v-model="telefono" type="text" required class="w-full bg-slate-900 border border-slate-700 p-4 rounded-2xl text-white">
-        </div>
-        <button type="submit" :disabled="cargando" class="md:col-span-2 w-full bg-sky-600 hover:bg-sky-500 py-5 rounded-2xl font-black uppercase text-white flex justify-center items-center gap-2">
-          <Loader2 v-if="cargando" class="w-6 h-6 animate-spin" />
-          <span v-else>Publicar Ahora</span>
-        </button>
-      </form>
     </div>
+
+    <div v-if="cargando" class="text-center py-12">
+        <Loader2 class="w-10 h-10 animate-spin mx-auto text-sky-500" />
+    </div>
+
+    <div v-else-if="cartasFiltradas.length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div v-for="card in cartasFiltradas" :key="card.id" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-sky-500 transition-all hover:-translate-y-1 group">
+        <div class="h-44 bg-slate-900 rounded-xl mb-3 bg-cover bg-center" :style="{ backgroundImage: `url(${card.imagen_url})` }"></div>
+        <h4 class="font-bold text-sm text-white truncate">{{ card.titulo }}</h4>
+        <div class="flex justify-between items-center mt-2">
+            <span class="text-[10px] bg-slate-900 px-2 py-1 rounded text-slate-400 uppercase font-bold">{{ card.juego }}</span>
+            <p class="text-xs text-green-400 font-black">${{ formatearPrecio(card.precio) }}</p>
+        </div>
+        <a :href="'https://wa.me/' + card.telefono + '?text=Hola,%20me%20interesa%20tu%20carta%20' + card.titulo" target="_blank" class="mt-3 block text-center w-full bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white py-2 rounded-lg transition-all text-xs font-bold uppercase tracking-widest">
+          Contactar
+        </a>
+      </div>
+    </div>
+
+    <div v-else class="text-center py-10 opacity-50 bg-slate-800 rounded-3xl border border-slate-700">
+        <p>No encontramos ninguna carta con ese nombre.</p>
+    </div>
+
   </div>
 </template>
