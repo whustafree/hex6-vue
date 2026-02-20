@@ -1,10 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase } from '../supabase'
-import { Layers, Gem, Loader2 } from 'lucide-vue-next'
+import { Layers, Gem, Users, Loader2 } from 'lucide-vue-next'
 
 const tcgItems = ref([])
 const colItems = ref([])
+const lfgItems = ref([]) // NUEVO: Variable para los grupos
 const cargando = ref(true)
 
 // Función para formatear el dinero al estilo chileno
@@ -14,11 +15,18 @@ const formatearPrecio = (precio) => {
 
 onMounted(async () => {
   try {
+    // 1. Cargar TCG
     const { data: tcg } = await supabase.from('tcg_exchange').select('*').order('id', { ascending: false }).limit(4)
     if (tcg) tcgItems.value = tcg
 
+    // 2. Cargar Vitrina
     const { data: col } = await supabase.from('colecciones').select('*').order('id', { ascending: false }).limit(4)
     if (col) colItems.value = col
+
+    // 3. NUEVO: Cargar Grupos LFG
+    const { data: lfg } = await supabase.from('lfg_posts').select('*').order('id', { ascending: false }).limit(4)
+    if (lfg) lfgItems.value = lfg
+
   } catch (error) {
     console.error('Error:', error)
   } finally {
@@ -104,7 +112,48 @@ onMounted(async () => {
             </div>
         </div>
         </section>
-    </div>
 
+        <div class="h-12"></div>
+
+        <section v-if="lfgItems.length > 0">
+        <div class="flex justify-between items-end mb-6">
+            <h3 class="text-2xl font-black italic text-green-400 flex items-center gap-2">
+            <Users class="w-8 h-8" /> Buscando Grupo
+            </h3>
+            <router-link to="/grupos" class="text-xs font-bold text-slate-500 hover:text-green-400 transition-colors">VER TODO ➔</router-link>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div v-for="item in lfgItems" :key="item.id" 
+                 :class="item.tipo === 'Online' ? 'border-indigo-500' : 'border-green-500'"
+                 class="bg-slate-800 p-5 rounded-2xl border-l-4 hover:bg-slate-800/80 transition-colors flex flex-col justify-between">
+                
+                <div>
+                  <div class="flex justify-between items-center mb-2">
+                    <h4 class="font-black text-xl italic text-slate-100 truncate pr-2">{{ item.juego_nombre }}</h4>
+                    <span :class="item.tipo === 'Online' ? 'bg-indigo-900/40 text-indigo-400' : 'bg-green-900/40 text-green-400'" class="text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-tighter shrink-0">
+                      {{ item.tipo }}
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-400 font-bold uppercase mb-2">{{ item.lugar }}</p>
+                  <p class="text-sm text-slate-300 line-clamp-2 mb-4">{{ item.descripcion }}</p>
+                </div>
+                
+                <div class="mt-auto">
+                  <a v-if="item.telefono.startsWith('http')" :href="item.telefono" target="_blank" 
+                     class="block w-full text-center bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all">
+                    Unirme al Link
+                  </a>
+                  <div v-else class="bg-slate-900 px-4 py-2 rounded-lg border border-slate-700 text-center">
+                    <span class="block text-[10px] text-slate-500 font-bold uppercase tracking-widest">Discord / Contacto</span>
+                    <span class="font-black text-indigo-400 select-all">{{ item.telefono }}</span>
+                  </div>
+                </div>
+
+            </div>
+        </div>
+        </section>
+
+    </div>
   </div>
 </template>
