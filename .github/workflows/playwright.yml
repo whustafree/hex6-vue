@@ -2,8 +2,6 @@ name: Robot Tester HEX6
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
 
 jobs:
   test:
@@ -13,13 +11,10 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
-        node-version: 18
-        
-    - name: Instalar dependencias del proyecto
+        node-version: 20   # <--- ¡AQUÍ ESTÁ EL CAMBIO!
+    - name: Instalar dependencias
       run: npm install
-      
-    - name: Instalar navegadores del robot
+    - name: Instalar robot
       run: npx playwright install --with-deps
-      
-    - name: Ejecutar pruebas automatizadas
+    - name: Correr pruebas
       run: npm run test
