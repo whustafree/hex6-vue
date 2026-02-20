@@ -40,16 +40,16 @@ const cerrarSesion = async () => {
     
     <nav class="sticky top-0 z-50 p-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 shadow-lg shadow-sky-900/10">
       <div class="max-w-6xl mx-auto flex justify-between items-center">
-        <router-link to="/reglas" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-yellow-400">
-  <ShieldCheck class="w-3 h-3" /> Reglas
-</router-link>
+        
         <router-link to="/" class="flex items-center gap-3 group relative pl-2">
           <div class="relative flex items-center justify-center">
             <div class="absolute inset-0 bg-sky-500 blur-md opacity-20 group-hover:opacity-60 transition-opacity duration-500 rounded-full"></div>
             <Hexagon class="w-9 h-9 text-sky-400 relative z-10" stroke-width="2.5" />
             <div class="absolute w-2 h-2 bg-purple-400 rounded-full z-20 shadow-[0_0_10px_#c084fc] group-hover:animate-ping"></div>
           </div>
-          
+          <router-link to="/reglas" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-yellow-400">
+  <ShieldCheck class="w-3 h-3" /> Reglas
+</router-link>
           <div class="flex flex-col justify-center -space-y-1 mt-1">
             <span class="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-300">
               HEX<span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-purple-500">6</span>
