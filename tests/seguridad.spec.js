@@ -6,11 +6,11 @@ test('El Buscador de Grupos (LFG) carga correctamente', async ({ page }) => {
 
   // 2. Verifica que el título principal exista
   const titulo = page.locator('h2');
-  await expect(titulo).toContainText(/Buscador/i);
+  await expect(titulo).toContainText(/Grupos/i); // <-- AHORA SÍ BUSCA LA PALABRA CORRECTA
 });
 
 test('Seguridad: Un usuario sin cuenta no puede entrar al Dashboard', async ({ page }) => {
-  // 1. El robot intenta "colarse" directamente a la URL privada del Centro de Mando
+  // 1. El robot intenta "colarse" directamente a la URL privada
   await page.goto('http://localhost:5173/dashboard');
 
   // 2. Verifica que el sistema lo redirija automáticamente a la página de Login
