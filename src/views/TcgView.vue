@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { supabase } from '../supabase'
+import { showToast } from '../utils/toast' // SISTEMA DE ALERTAS
 import { 
   Search, Layers, Loader2, Heart, X, User, MessageCircle, Send, CornerDownRight 
 } from 'lucide-vue-next'
@@ -79,13 +80,15 @@ const cartasFiltradas = computed(() => {
 
 const toggleFavorito = async (carta) => {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return alert('Debes iniciar sesión para favoritos')
+  if (!session) return showToast('Inicia sesión para favoritos', 'info')
   if (misFavoritosIds.value.includes(carta.id)) {
     await supabase.from('favoritos').delete().eq('item_id', carta.id).eq('user_id', session.user.id).eq('tipo', 'TCG')
     misFavoritosIds.value = misFavoritosIds.value.filter(id => id !== carta.id)
+    showToast('Eliminado de favoritos', 'info')
   } else {
     await supabase.from('favoritos').insert({ user_id: session.user.id, item_id: carta.id, tipo: 'TCG', titulo: carta.titulo, imagen_url: carta.imagen_url, precio: carta.precio })
     misFavoritosIds.value.push(carta.id)
+    showToast('Guardado en favoritos', 'success')
   }
 }
 
@@ -101,7 +104,12 @@ const enviarPregunta = async () => {
     if (error) throw error
     nuevaPregunta.value = ''
     await cargarPreguntas(cartaSeleccionada.value.id)
-  } catch (e) { alert(e.message) } finally { enviandoPregunta.value = false }
+    showToast('Pregunta enviada', 'success')
+  } catch (e) { 
+    showToast(e.message, 'error') 
+  } finally { 
+    enviandoPregunta.value = false 
+  }
 }
 
 const enviarRespuesta = async (preguntaId) => {
@@ -112,7 +120,10 @@ const enviarRespuesta = async (preguntaId) => {
     if (error) throw error
     respuestasPendientes.value[preguntaId] = ''
     await cargarPreguntas(cartaSeleccionada.value.id)
-  } catch(e) { alert(e.message) }
+    showToast('Respuesta publicada', 'success')
+  } catch(e) { 
+    showToast(e.message, 'error') 
+  }
 }
 </script>
 

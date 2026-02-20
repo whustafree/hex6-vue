@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { supabase } from '../supabase'
+import { showToast } from '../utils/toast' // SISTEMA DE ALERTAS
 import { 
   Search, Gem, Loader2, Heart, X, User, MessageCircle, Send, CornerDownRight 
 } from 'lucide-vue-next'
@@ -21,7 +22,7 @@ const currentUser = ref(null)
 const preguntas = ref([])
 const nuevaPregunta = ref('')
 const enviandoPregunta = ref(false)
-const respuestasPendientes = ref({}) // Guarda el texto que el vendedor está escribiendo
+const respuestasPendientes = ref({}) 
 
 const cargarPreguntas = async (itemId) => {
   const { data } = await supabase.from('preguntas').select('*').eq('item_id', itemId).eq('tipo_item', 'vitrina').order('created_at', { ascending: true })
@@ -87,13 +88,16 @@ const itemsFiltrados = computed(() => {
 
 const toggleFavorito = async (item) => {
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return alert('Inicia sesión para favoritos')
+  if (!session) return showToast('Inicia sesión para guardar favoritos', 'info')
+  
   if (misFavoritosIds.value.includes(item.id)) {
     await supabase.from('favoritos').delete().eq('item_id', item.id).eq('user_id', session.user.id)
     misFavoritosIds.value = misFavoritosIds.value.filter(id => id !== item.id)
+    showToast('Eliminado de favoritos', 'info')
   } else {
     await supabase.from('favoritos').insert({ user_id: session.user.id, item_id: item.id, tipo: 'Vitrina', titulo: item.item_nombre, imagen_url: item.imagen_url, precio: item.precio })
     misFavoritosIds.value.push(item.id)
+    showToast('Guardado en favoritos', 'success')
   }
 }
 
@@ -109,7 +113,12 @@ const enviarPregunta = async () => {
     if (error) throw error
     nuevaPregunta.value = ''
     await cargarPreguntas(itemSeleccionado.value.id)
-  } catch (e) { alert(e.message) } finally { enviandoPregunta.value = false }
+    showToast('Pregunta enviada', 'success')
+  } catch (e) { 
+    showToast(e.message, 'error') 
+  } finally { 
+    enviandoPregunta.value = false 
+  }
 }
 
 const enviarRespuesta = async (preguntaId) => {
@@ -120,7 +129,10 @@ const enviarRespuesta = async (preguntaId) => {
     if (error) throw error
     respuestasPendientes.value[preguntaId] = ''
     await cargarPreguntas(itemSeleccionado.value.id)
-  } catch(e) { alert(e.message) }
+    showToast('Respuesta publicada', 'success')
+  } catch(e) { 
+    showToast(e.message, 'error') 
+  }
 }
 </script>
 
@@ -164,7 +176,6 @@ const enviarRespuesta = async (preguntaId) => {
         </div>
 
         <div class="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto max-h-[90vh] custom-scrollbar">
-          
           <div class="mb-8">
             <span class="text-xs font-black text-purple-400 uppercase tracking-widest bg-purple-500/10 px-3 py-1 rounded-full">{{ itemSeleccionado.categoria }}</span>
             <h3 class="text-3xl font-black text-white mt-4 italic uppercase">{{ itemSeleccionado.item_nombre }}</h3>
@@ -202,17 +213,11 @@ const enviarRespuesta = async (preguntaId) => {
               <div v-if="preguntas.length === 0" class="text-center py-6"><p class="text-slate-500 text-xs font-bold uppercase">Aún no hay preguntas. ¡Sé el primero!</p></div>
               <div v-for="preg in preguntas" :key="preg.id" class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 space-y-3">
                 <div>
-                  <div class="flex items-center gap-2 mb-1">
-                    <User class="w-3 h-3 text-sky-400" />
-                    <span class="text-[10px] font-black uppercase text-sky-400">{{ preg.remitente_nombre }}</span>
-                  </div>
+                  <div class="flex items-center gap-2 mb-1"><User class="w-3 h-3 text-sky-400" /><span class="text-[10px] font-black uppercase text-sky-400">{{ preg.remitente_nombre }}</span></div>
                   <p class="text-sm text-slate-300 font-medium">{{ preg.pregunta }}</p>
                 </div>
                 <div v-if="preg.respuesta" class="ml-4 pl-4 border-l-2 border-slate-700">
-                  <div class="flex items-center gap-2 mb-1">
-                    <CornerDownRight class="w-3 h-3 text-purple-400" />
-                    <span class="text-[10px] font-black uppercase text-purple-400">Vendedor</span>
-                  </div>
+                  <div class="flex items-center gap-2 mb-1"><CornerDownRight class="w-3 h-3 text-purple-400" /><span class="text-[10px] font-black uppercase text-purple-400">Vendedor</span></div>
                   <p class="text-sm text-slate-400 font-medium italic">{{ preg.respuesta }}</p>
                 </div>
                 <div v-else-if="currentUser && currentUser.id === itemSeleccionado.user_id" class="ml-4 flex gap-2">
@@ -221,7 +226,6 @@ const enviarRespuesta = async (preguntaId) => {
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </div>

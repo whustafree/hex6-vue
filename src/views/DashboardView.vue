@@ -1,12 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase } from '../supabase'
+import { showToast } from '../utils/toast' // Alertas
 import { 
-  LayoutDashboard, Layers, Gem, Users, Trash2, Edit, Loader2, PlusCircle, X, Save 
+  LayoutDashboard, Layers, Gem, Users, Trash2, Edit, Loader2, X, Save, UserCog, PlusCircle
 } from 'lucide-vue-next'
 
 const cargando = ref(true)
 const activeTab = ref('tcg')
+const usuarioEmail = ref('')
 
 const misCartas = ref([])
 const misArticulos = ref([])
@@ -23,6 +25,7 @@ const cargarMisPublicaciones = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
     const userId = session.user.id
+    usuarioEmail.value = session.user.email
 
     const { data: tcg } = await supabase.from('tcg_exchange').select('*').eq('user_id', userId).order('id', { ascending: false })
     if (tcg) misCartas.value = tcg
@@ -39,44 +42,38 @@ const cargarMisPublicaciones = async () => {
 
 const formatearPrecio = (precio) => new Intl.NumberFormat('es-CL').format(precio)
 
-// NUEVO: Función para destruir la imagen físicamente del Storage
+// Función para destruir la imagen físicamente del Storage
 const destruirImagenStorage = async (url) => {
   if (!url) return
   try {
-    // La URL pública es larga, necesitamos extraer solo la parte final: "user_id/nombre_archivo.jpg"
     const rutaBase = 'public/items/'
     const index = url.indexOf(rutaBase)
     if (index !== -1) {
       const rutaArchivo = url.substring(index + rutaBase.length)
       await supabase.storage.from('items').remove([rutaArchivo])
     }
-  } catch (error) {
-    console.error('Error limpiando imagen:', error)
-  }
+  } catch (error) { console.error('Error limpiando imagen:', error) }
 }
 
-// ACTUALIZADO: Ahora recibe el "item" completo para poder leer sus fotos
 const eliminarPublicacion = async (tabla, item, tipo) => {
   if (!confirm('⚠️ ¿Estás seguro de eliminar esta publicación? Se borrarán también las fotos del servidor.')) return
   
   try {
-    // 1. Borrar de la base de datos (Texto)
     const { error } = await supabase.from(tabla).delete().eq('id', item.id)
     if (error) throw error
 
-    // 2. Borrar las imágenes del Storage para ahorrar espacio (Solo TCG y Vitrina)
     if (tipo !== 'lfg') {
       if (item.imagen_url) await destruirImagenStorage(item.imagen_url)
       if (item.imagen_url_2) await destruirImagenStorage(item.imagen_url_2)
       if (item.imagen_url_3) await destruirImagenStorage(item.imagen_url_3)
     }
 
-    // 3. Quitar de la pantalla
     if (tipo === 'tcg') misCartas.value = misCartas.value.filter(i => i.id !== item.id)
     if (tipo === 'vitrina') misArticulos.value = misArticulos.value.filter(i => i.id !== item.id)
     if (tipo === 'lfg') misGrupos.value = misGrupos.value.filter(i => i.id !== item.id)
 
-  } catch (error) { alert('Error al eliminar: ' + error.message) }
+    showToast('Publicación eliminada correctamente', 'info')
+  } catch (error) { showToast('Error al eliminar: ' + error.message, 'error') }
 }
 
 const abrirEdicion = (item, tipo) => {
@@ -94,8 +91,7 @@ const cerrarEdicion = () => {
 const guardarEdicion = async () => {
   guardando.value = true
   try {
-    let tabla = ''
-    let datosActualizados = {}
+    let tabla = ''; let datosActualizados = {}
 
     if (tipoEditando.value === 'tcg') {
       tabla = 'tcg_exchange'
@@ -123,7 +119,8 @@ const guardarEdicion = async () => {
     }
 
     cerrarEdicion()
-  } catch (error) { alert('Error al guardar: ' + error.message) } 
+    showToast('Cambios guardados con éxito', 'success')
+  } catch (error) { showToast('Error al guardar: ' + error.message, 'error') } 
   finally { guardando.value = false }
 }
 
@@ -133,16 +130,20 @@ onMounted(cargarMisPublicaciones)
 <template>
   <div class="space-y-8 pb-20 animate-in fade-in duration-500 max-w-5xl mx-auto p-4">
     
-    <div class="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+    <div class="bg-slate-800/40 p-8 rounded-3xl border border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6 shadow-xl">
       <div class="flex items-center gap-4">
         <div class="w-16 h-16 bg-sky-500/20 rounded-2xl flex items-center justify-center border border-sky-500/30">
           <LayoutDashboard class="w-8 h-8 text-sky-400" />
         </div>
         <div>
           <h2 class="text-3xl font-black italic text-white uppercase">Centro de Mando</h2>
-          <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Administra tus publicaciones</p>
+          <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Sesión: {{ usuarioEmail }}</p>
         </div>
       </div>
+      <router-link to="/perfil" class="bg-slate-900 p-4 rounded-2xl border border-slate-700 hover:border-sky-500 transition-all flex items-center gap-2 group shadow-lg">
+        <UserCog class="w-5 h-5 text-slate-400 group-hover:text-sky-400" />
+        <span class="text-xs font-black uppercase text-slate-300">Configurar Perfil</span>
+      </router-link>
     </div>
 
     <div v-if="cargando" class="text-center py-20"><Loader2 class="w-12 h-12 animate-spin mx-auto text-sky-500" /></div>
@@ -158,7 +159,8 @@ onMounted(cargarMisPublicaciones)
       <div v-show="activeTab === 'tcg'" class="animate-in slide-in-from-left-4 duration-300">
         <div v-if="misCartas.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700">
           <Layers class="w-12 h-12 mx-auto text-slate-600 mb-4" />
-          <p class="text-slate-500 font-bold uppercase tracking-widest">No tienes cartas a la venta</p>
+          <p class="text-slate-500 font-bold uppercase tracking-widest mb-4">No tienes cartas a la venta</p>
+          <router-link to="/add-tcg" class="bg-sky-600 hover:bg-sky-500 text-white px-6 py-2 rounded-xl text-xs font-black uppercase">Subir Carta</router-link>
         </div>
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div v-for="item in misCartas" :key="item.id" class="bg-slate-800 rounded-2xl p-4 border border-slate-700 flex flex-col justify-between">
@@ -181,7 +183,8 @@ onMounted(cargarMisPublicaciones)
       <div v-show="activeTab === 'vitrina'" class="animate-in slide-in-from-left-4 duration-300">
         <div v-if="misArticulos.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700">
           <Gem class="w-12 h-12 mx-auto text-slate-600 mb-4" />
-          <p class="text-slate-500 font-bold uppercase tracking-widest">No tienes artículos en vitrina</p>
+          <p class="text-slate-500 font-bold uppercase tracking-widest mb-4">No tienes artículos en vitrina</p>
+          <router-link to="/add-vitrina" class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl text-xs font-black uppercase">Subir Artículo</router-link>
         </div>
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div v-for="item in misArticulos" :key="item.id" class="bg-slate-800 rounded-2xl p-4 border border-slate-700 flex flex-col justify-between">
@@ -204,7 +207,8 @@ onMounted(cargarMisPublicaciones)
       <div v-show="activeTab === 'lfg'" class="animate-in slide-in-from-left-4 duration-300">
         <div v-if="misGrupos.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700">
           <Users class="w-12 h-12 mx-auto text-slate-600 mb-4" />
-          <p class="text-slate-500 font-bold uppercase tracking-widest">No has buscado grupo últimamente</p>
+          <p class="text-slate-500 font-bold uppercase tracking-widest mb-4">No has buscado grupo últimamente</p>
+          <router-link to="/add-lfg" class="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-xl text-xs font-black uppercase">Buscar Grupo</router-link>
         </div>
         <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div v-for="item in misGrupos" :key="item.id" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between">
