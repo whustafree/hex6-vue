@@ -1,7 +1,7 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { supabase } from '../supabase'
-import { showToast } from '../utils/toast' // SISTEMA DE ALERTAS
+import { showToast } from '../utils/toast'
 import { 
   Search, Gem, Loader2, Heart, X, User, MessageCircle, Send, CornerDownRight 
 } from 'lucide-vue-next'
@@ -23,6 +23,7 @@ const preguntas = ref([])
 const nuevaPregunta = ref('')
 const enviandoPregunta = ref(false)
 const respuestasPendientes = ref({}) 
+let canalRealtime = null // <--- NUEVO: Controlador del canal en vivo
 
 const cargarPreguntas = async (itemId) => {
   const { data } = await supabase.from('preguntas').select('*').eq('item_id', itemId).eq('tipo_item', 'vitrina').order('created_at', { ascending: true })
@@ -52,9 +53,30 @@ const abrirDetalle = async (item) => {
   }
 
   await cargarPreguntas(item.id)
+
+  // <--- NUEVO: CONEXIÓN EN TIEMPO REAL --->
+  canalRealtime = supabase.channel('preguntas_vitrina')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'preguntas', filter: `item_id=eq.${item.id}` }, (payload) => {
+      // Si alguien pregunta o responde, recargamos el chat al instante
+      cargarPreguntas(item.id)
+    })
+    .subscribe()
 }
 
-const cerrarDetalle = () => { itemSeleccionado.value = null }
+const cerrarDetalle = () => { 
+  itemSeleccionado.value = null 
+  // Desconectamos el canal en vivo al cerrar el modal
+  if (canalRealtime) {
+    supabase.removeChannel(canalRealtime)
+    canalRealtime = null
+  }
+}
+
+// Limpiamos si el usuario se va a otra página
+onUnmounted(() => {
+  if (canalRealtime) supabase.removeChannel(canalRealtime)
+})
+
 const formatearPrecio = (precio) => new Intl.NumberFormat('es-CL').format(precio)
 
 const cargarFavoritos = async () => {
@@ -112,8 +134,7 @@ const enviarPregunta = async () => {
     })
     if (error) throw error
     nuevaPregunta.value = ''
-    await cargarPreguntas(itemSeleccionado.value.id)
-    showToast('Pregunta enviada', 'success')
+    // Ya no llamamos a cargarPreguntas() aquí porque el Tiempo Real lo hará automáticamente
   } catch (e) { 
     showToast(e.message, 'error') 
   } finally { 
@@ -128,7 +149,6 @@ const enviarRespuesta = async (preguntaId) => {
     const { error } = await supabase.from('preguntas').update({ respuesta: texto }).eq('id', preguntaId)
     if (error) throw error
     respuestasPendientes.value[preguntaId] = ''
-    await cargarPreguntas(itemSeleccionado.value.id)
     showToast('Respuesta publicada', 'success')
   } catch(e) { 
     showToast(e.message, 'error') 

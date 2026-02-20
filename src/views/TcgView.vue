@@ -1,7 +1,7 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { supabase } from '../supabase'
-import { showToast } from '../utils/toast' // SISTEMA DE ALERTAS
+import { showToast } from '../utils/toast'
 import { 
   Search, Layers, Loader2, Heart, X, User, MessageCircle, Send, CornerDownRight 
 } from 'lucide-vue-next'
@@ -21,6 +21,7 @@ const preguntas = ref([])
 const nuevaPregunta = ref('')
 const enviandoPregunta = ref(false)
 const respuestasPendientes = ref({})
+let canalRealtime = null // <--- CONEXIÓN EN VIVO
 
 const cargarPreguntas = async (itemId) => {
   const { data } = await supabase.from('preguntas').select('*').eq('item_id', itemId).eq('tipo_item', 'tcg').order('created_at', { ascending: true })
@@ -48,9 +49,27 @@ const abrirDetalle = async (carta) => {
     if (data) vendedorSeleccionado.value = data
   }
   await cargarPreguntas(carta.id)
+
+  // <--- NUEVO: TIEMPO REAL --->
+  canalRealtime = supabase.channel('preguntas_tcg')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'preguntas', filter: `item_id=eq.${carta.id}` }, (payload) => {
+      cargarPreguntas(carta.id)
+    })
+    .subscribe()
 }
 
-const cerrarDetalle = () => { cartaSeleccionada.value = null }
+const cerrarDetalle = () => { 
+  cartaSeleccionada.value = null 
+  if (canalRealtime) {
+    supabase.removeChannel(canalRealtime)
+    canalRealtime = null
+  }
+}
+
+onUnmounted(() => {
+  if (canalRealtime) supabase.removeChannel(canalRealtime)
+})
+
 const formatearPrecio = (precio) => new Intl.NumberFormat('es-CL').format(precio)
 
 const cargarFavoritos = async () => {
@@ -103,7 +122,6 @@ const enviarPregunta = async () => {
     })
     if (error) throw error
     nuevaPregunta.value = ''
-    await cargarPreguntas(cartaSeleccionada.value.id)
     showToast('Pregunta enviada', 'success')
   } catch (e) { 
     showToast(e.message, 'error') 
@@ -119,7 +137,6 @@ const enviarRespuesta = async (preguntaId) => {
     const { error } = await supabase.from('preguntas').update({ respuesta: texto }).eq('id', preguntaId)
     if (error) throw error
     respuestasPendientes.value[preguntaId] = ''
-    await cargarPreguntas(cartaSeleccionada.value.id)
     showToast('Respuesta publicada', 'success')
   } catch(e) { 
     showToast(e.message, 'error') 
