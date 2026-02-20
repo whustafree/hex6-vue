@@ -47,9 +47,7 @@ const cerrarSesion = async () => {
             <Hexagon class="w-9 h-9 text-sky-400 relative z-10" stroke-width="2.5" />
             <div class="absolute w-2 h-2 bg-purple-400 rounded-full z-20 shadow-[0_0_10px_#c084fc] group-hover:animate-ping"></div>
           </div>
-          <router-link to="/reglas" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-yellow-400">
-  <ShieldCheck class="w-3 h-3" /> Reglas
-</router-link>
+          
           <div class="flex flex-col justify-center -space-y-1 mt-1">
             <span class="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-300">
               HEX<span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-purple-500">6</span>
@@ -59,7 +57,9 @@ const cerrarSesion = async () => {
             </span>
           </div>
         </router-link>
-
+<router-link to="/reglas" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-yellow-400">
+  <ShieldCheck class="w-3 h-3" /> Reglas
+</router-link>
         <div class="flex items-center gap-4 md:gap-8">
           
           <div class="hidden md:flex gap-6 mr-4 border-r border-slate-800 pr-6">
