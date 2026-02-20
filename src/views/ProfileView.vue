@@ -1,108 +1,136 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase } from '../supabase'
-import { UserCog, Save, Loader2, ArrowLeft, Smartphone, MapPin } from 'lucide-vue-next'
+import { User, Phone, MapPin, Save, Loader2, CheckCircle } from 'lucide-vue-next'
 
-const cargando = ref(true)
-const guardando = ref(false)
+const loading = ref(true)
+const saving = ref(false)
+const success = ref(false)
+
 const perfil = ref({
-  full_name: '',
-  phone: '',
-  city: 'Rancagua'
+  username: '',
+  whatsapp: '',
+  ciudad: 'Rancagua'
 })
 
-onMounted(async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  // Intentar traer datos del perfil
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+const getProfile = async () => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
 
-  if (data) {
-    perfil.value = data
+    const { data, error } = await supabase
+      .from('perfiles')
+      .select('username, whatsapp, ciudad')
+      .eq('id', session.user.id)
+      .single()
+
+    if (data) {
+      perfil.value = data
+    }
+  } catch (error) {
+    console.error(error)
+  } finally {
+    loading.value = false
   }
-  cargando.value = false
-})
-
-const actualizarPerfil = async () => {
-  guardando.value = true
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  const { error } = await supabase
-    .from('profiles')
-    .upsert({
-      id: user.id,
-      full_name: perfil.value.full_name,
-      phone: perfil.value.phone,
-      city: perfil.value.city,
-      updated_at: new Date()
-    })
-
-  if (error) alert("Error: " + error.message)
-  else alert("¡Perfil actualizado! Ahora tus formularios se auto-rellenarán.")
-  
-  guardando.value = false
 }
+
+const updateProfile = async () => {
+  saving.ref = true
+  success.value = false
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const updates = {
+      id: session.user.id,
+      ...perfil.value,
+      updated_at: new Date()
+    }
+
+    const { error } = await supabase.from('perfiles').upsert(updates)
+    if (error) throw error
+    
+    success.value = true
+    setTimeout(() => { success.value = false }, 3000)
+  } catch (error) {
+    alert('Error al actualizar: ' + error.message)
+  } finally {
+    saving.value = false
+  }
+}
+
+onMounted(() => {
+  getProfile()
+})
 </script>
 
 <template>
-  <div class="max-w-xl mx-auto pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
-    <router-link to="/dashboard" class="flex items-center gap-2 text-slate-500 hover:text-white mb-6 transition-colors font-bold text-sm uppercase">
-      <ArrowLeft class="w-4 h-4" /> Volver al Panel
-    </router-link>
-
-    <div class="bg-slate-800 rounded-3xl border border-slate-700 p-8 shadow-2xl relative overflow-hidden">
-      <div class="absolute top-0 right-0 w-32 h-32 bg-sky-500/5 rounded-full -mr-16 -mt-16"></div>
-
-      <div class="flex items-center gap-4 mb-8">
-        <div class="bg-sky-500/20 p-3 rounded-2xl">
-          <UserCog class="w-8 h-8 text-sky-400" />
-        </div>
-        <div>
-          <h2 class="text-2xl font-black italic text-white uppercase">Mi Perfil Geek</h2>
-          <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Datos de contacto automáticos</p>
-        </div>
+  <div class="max-w-2xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
+    
+    <div class="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-xl relative overflow-hidden">
+      <div class="absolute top-0 right-0 p-8 opacity-10">
+        <User class="w-32 h-32 text-white" />
       </div>
 
-      <div v-if="cargando" class="py-10 text-center">
-        <Loader2 class="w-10 h-10 animate-spin mx-auto text-sky-500" />
-      </div>
-
-      <form v-else @submit.prevent="actualizarPerfil" class="space-y-6">
-        <div>
-          <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">Nombre Público</label>
-          <input v-model="perfil.full_name" type="text" placeholder="Ej: Gustavo Soto" required
-            class="w-full bg-slate-900 border border-slate-700 p-4 rounded-2xl focus:outline-none focus:border-sky-500 text-white">
-        </div>
-
-        <div>
-          <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">WhatsApp (Sin +)</label>
-          <div class="relative">
-            <Smartphone class="absolute left-4 top-4 w-5 h-5 text-slate-600" />
-            <input v-model="perfil.phone" type="text" placeholder="56912345678" required
-              class="w-full bg-slate-900 border border-slate-700 p-4 pl-12 rounded-2xl focus:outline-none focus:border-sky-500 text-white">
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-black text-slate-500 uppercase mb-2 ml-1">Ciudad Base</label>
-          <div class="relative">
-            <MapPin class="absolute left-4 top-4 w-5 h-5 text-slate-600" />
-            <input v-model="perfil.city" type="text" placeholder="Ej: Rancagua" required
-              class="w-full bg-slate-900 border border-slate-700 p-4 pl-12 rounded-2xl focus:outline-none focus:border-sky-500 text-white">
-          </div>
-        </div>
-
-        <button type="submit" :disabled="guardando"
-          class="w-full bg-sky-600 hover:bg-sky-500 disabled:bg-slate-700 py-5 rounded-2xl font-black uppercase tracking-widest transition-all shadow-lg shadow-sky-900/40 flex justify-center items-center gap-3">
-          <Loader2 v-if="guardando" class="w-6 h-6 animate-spin" />
-          <Save v-else class="w-6 h-6" />
-          <span>Guardar Cambios</span>
-        </button>
-      </form>
+      <h2 class="text-3xl font-black italic text-sky-400 uppercase mb-2">Mi Perfil</h2>
+      <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">Configura tu identidad en HEX6</p>
     </div>
+
+    <div v-if="loading" class="text-center py-12">
+      <Loader2 class="w-10 h-10 animate-spin mx-auto text-sky-500" />
+    </div>
+
+    <form v-else @submit.prevent="updateProfile" class="space-y-6">
+      <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4">
+        <label class="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
+          <User class="w-4 h-4 text-sky-400" /> Nombre de Guerrero / Alias
+        </label>
+        <input 
+          v-model="perfil.username"
+          type="text" 
+          placeholder="Ej: Gustavo_TCG"
+          class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-sky-500 outline-none transition-all"
+        >
+      </div>
+
+      <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4">
+        <label class="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
+          <Phone class="w-4 h-4 text-green-400" /> Tu WhatsApp (Sin el +)
+        </label>
+        <input 
+          v-model="perfil.whatsapp"
+          type="text" 
+          placeholder="56912345678"
+          class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-green-500 outline-none transition-all"
+        >
+      </div>
+
+      <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 space-y-4">
+        <label class="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
+          <MapPin class="w-4 h-4 text-purple-400" /> Ciudad
+        </label>
+        <select 
+          v-model="perfil.ciudad"
+          class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-purple-500 outline-none transition-all appearance-none"
+        >
+          <option>Rancagua</option>
+          <option>Machalí</option>
+          <option>Graneros</option>
+          <option>Doñihue</option>
+          <option>Rengo</option>
+        </select>
+      </div>
+
+      <button 
+        type="submit"
+        :disabled="saving"
+        class="w-full py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-lg"
+        :class="success ? 'bg-green-600 text-white' : 'bg-sky-600 hover:bg-sky-500 text-white'"
+      >
+        <Loader2 v-if="saving" class="w-5 h-5 animate-spin" />
+        <CheckCircle v-else-if="success" class="w-5 h-5" />
+        <Save v-else class="w-5 h-5" />
+        {{ success ? 'Perfil Actualizado' : (saving ? 'Guardando...' : 'Guardar Cambios') }}
+      </button>
+    </form>
+
   </div>
 </template>
