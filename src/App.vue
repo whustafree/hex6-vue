@@ -42,10 +42,10 @@ const cerrarSesion = async () => {
         </router-link>
 
         <div class="hidden lg:flex items-center gap-6 border-r border-slate-800 pr-6 h-8">
-          <router-link to="/tcg" class="nav-link" active-class="text-sky-400"><Layers class="w-3 h-3" /> TCG</router-link>
-          <router-link to="/vitrina" class="nav-link" active-class="text-purple-400"><Gem class="w-3 h-3" /> Vitrina</router-link>
-          <router-link to="/grupos" class="nav-link" active-class="text-green-400"><Users class="w-3 h-3" /> Grupos</router-link>
-          <router-link to="/reglas" class="nav-link" active-class="text-yellow-400"><ShieldCheck class="w-3 h-3" /> Reglas</router-link>
+          <router-link to="/tcg" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-sky-400"><Layers class="w-3 h-3" /> TCG</router-link>
+          <router-link to="/vitrina" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-purple-400"><Gem class="w-3 h-3" /> Vitrina</router-link>
+          <router-link to="/grupos" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-green-400"><Users class="w-3 h-3" /> Grupos</router-link>
+          <router-link to="/reglas" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-yellow-400"><ShieldCheck class="w-3 h-3" /> Reglas</router-link>
         </div>
 
         <div class="flex items-center gap-2 md:gap-4">
@@ -65,7 +65,7 @@ const cerrarSesion = async () => {
             </button>
           </div>
 
-          <router-link v-else to="/login" class="btn-entrar">
+          <router-link v-else to="/login" class="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all uppercase tracking-widest shadow-lg">
             <User class="w-4 h-4" />
             <span class="hidden sm:block">Entrar</span>
           </router-link>
@@ -84,8 +84,7 @@ const cerrarSesion = async () => {
 </template>
 
 <style scoped>
-.nav-link { @apply flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors; }
-.btn-entrar { @apply flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all uppercase tracking-widest; }
+/* Solo dejamos las animaciones de Vue, que no usan Tailwind */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
