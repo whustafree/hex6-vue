@@ -5,7 +5,7 @@ import { showToast } from '../utils/toast'
 import { 
   LayoutDashboard, Layers, Gem, Users, Trash2, Edit, Loader2, X, Save, UserCog, 
   MessageCircle, Send, CornerDownRight, BellRing, Bookmark, CheckSquare, Inbox, Send as SendIcon,
-  PlusCircle // <-- IMPORTAMOS EL ÍCONO DE AÑADIR
+  PlusCircle
 } from 'lucide-vue-next'
 
 const cargando = ref(true)
@@ -56,6 +56,25 @@ const cargarMisPublicaciones = async () => {
 }
 
 const preguntasSinResponder = computed(() => misMensajesRecibidos.value.filter(m => !m.respuesta).length)
+
+// NUEVO: Función para eliminar mensajes individuales
+const eliminarMensaje = async (id, lista) => {
+  if (!confirm('¿Seguro que deseas eliminar este mensaje de tu bandeja?')) return
+  try {
+    const { error } = await supabase.from('preguntas').delete().eq('id', id)
+    if (error) throw error
+    
+    // Quitarlo visualmente al instante
+    if (lista === 'recibidos') {
+      misMensajesRecibidos.value = misMensajesRecibidos.value.filter(m => m.id !== id)
+    } else {
+      misMensajesEnviados.value = misMensajesEnviados.value.filter(m => m.id !== id)
+    }
+    showToast('Mensaje eliminado', 'info')
+  } catch (error) {
+    showToast('Error al eliminar mensaje: ' + error.message, 'error')
+  }
+}
 
 const enviarRespuesta = async (preguntaId) => {
   const texto = respuestasPendientes.value[preguntaId]
@@ -191,7 +210,14 @@ onUnmounted(() => { if (canalDashboard) supabase.removeChannel(canalDashboard) }
           <div v-if="misMensajesRecibidos.length === 0" class="text-center py-10"><p class="text-slate-500 font-bold uppercase tracking-widest">Nadie ha preguntado en tus artículos</p></div>
           <div v-else class="space-y-4">
             <div v-for="msj in misMensajesRecibidos" :key="msj.id" class="bg-slate-800 p-5 rounded-2xl border transition-all" :class="msj.respuesta ? 'border-slate-700 opacity-75' : 'border-orange-500 shadow-lg shadow-orange-900/20'">
-              <div class="flex justify-between items-start mb-3"><span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="msj.tipo_item === 'tcg' ? 'bg-sky-500/20 text-sky-400' : 'bg-purple-500/20 text-purple-400'">En {{ msj.tipo_item }}</span><span v-if="!msj.respuesta" class="text-[10px] bg-red-500 text-white px-2 py-1 rounded font-bold uppercase">Sin Responder</span><span v-else class="text-[10px] bg-green-500 text-white px-2 py-1 rounded font-bold uppercase">Respondido</span></div>
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex gap-2 items-center">
+                  <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="msj.tipo_item === 'tcg' ? 'bg-sky-500/20 text-sky-400' : 'bg-purple-500/20 text-purple-400'">En {{ msj.tipo_item }}</span>
+                  <span v-if="!msj.respuesta" class="text-[10px] bg-red-500 text-white px-2 py-1 rounded font-bold uppercase">Sin Responder</span>
+                  <span v-else class="text-[10px] bg-green-500 text-white px-2 py-1 rounded font-bold uppercase">Respondido</span>
+                </div>
+                <button @click="eliminarMensaje(msj.id, 'recibidos')" class="text-slate-500 hover:text-red-500 transition-colors p-1" title="Borrar Conversación"><Trash2 class="w-4 h-4" /></button>
+              </div>
               <div class="flex items-center gap-2 mb-2"><User class="w-4 h-4 text-orange-400" /><span class="text-xs font-black uppercase text-orange-400">{{ msj.remitente_nombre }} pregunta:</span></div>
               <p class="text-white text-sm mb-4 bg-slate-900 p-3 rounded-xl border border-slate-700">"{{ msj.pregunta }}"</p>
               
@@ -208,7 +234,14 @@ onUnmounted(() => { if (canalDashboard) supabase.removeChannel(canalDashboard) }
           <div v-if="misMensajesEnviados.length === 0" class="text-center py-10"><p class="text-slate-500 font-bold uppercase tracking-widest">No has hecho preguntas a nadie</p></div>
           <div v-else class="space-y-4">
             <div v-for="msj in misMensajesEnviados" :key="'e'+msj.id" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 transition-all shadow-lg">
-              <div class="flex justify-between items-start mb-3"><span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="msj.tipo_item === 'tcg' ? 'bg-sky-500/20 text-sky-400' : 'bg-purple-500/20 text-purple-400'">Consultaste en {{ msj.tipo_item }}</span><span v-if="!msj.respuesta" class="text-[10px] border border-slate-500 text-slate-400 px-2 py-1 rounded font-bold uppercase">En Espera</span><span v-else class="text-[10px] bg-green-500 text-white px-2 py-1 rounded font-bold uppercase">Respondido</span></div>
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex gap-2 items-center">
+                  <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="msj.tipo_item === 'tcg' ? 'bg-sky-500/20 text-sky-400' : 'bg-purple-500/20 text-purple-400'">Consultaste en {{ msj.tipo_item }}</span>
+                  <span v-if="!msj.respuesta" class="text-[10px] border border-slate-500 text-slate-400 px-2 py-1 rounded font-bold uppercase">En Espera</span>
+                  <span v-else class="text-[10px] bg-green-500 text-white px-2 py-1 rounded font-bold uppercase">Respondido</span>
+                </div>
+                <button @click="eliminarMensaje(msj.id, 'enviados')" class="text-slate-500 hover:text-red-500 transition-colors p-1" title="Eliminar Registro"><Trash2 class="w-4 h-4" /></button>
+              </div>
               <div class="flex items-center gap-2 mb-2"><User class="w-4 h-4 text-sky-400" /><span class="text-xs font-black uppercase text-sky-400">Le preguntaste a {{ msj.vendedor_nombre }}:</span></div>
               <p class="text-white text-sm mb-4 bg-slate-900 p-3 rounded-xl border border-slate-700 opacity-80">"{{ msj.pregunta }}"</p>
               
@@ -227,27 +260,21 @@ onUnmounted(() => { if (canalDashboard) supabase.removeChannel(canalDashboard) }
           <h3 class="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2"><Layers class="w-5 h-5 text-sky-400"/> Mi Mercado</h3>
           <router-link to="/add-tcg" class="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase flex items-center gap-2 shadow-lg transition-all"><PlusCircle class="w-4 h-4"/> Añadir Carta</router-link>
         </div>
-        
         <div v-if="misCartas.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700"><p class="text-slate-500 font-bold uppercase tracking-widest">No tienes cartas a la venta</p></div>
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div v-for="item in misCartas" :key="item.id" class="bg-slate-800 rounded-2xl p-4 border border-slate-700 flex flex-col justify-between" :class="{'opacity-50 grayscale': item.estado === 'vendido'}">
             <div class="flex gap-4 items-start">
               <div class="w-20 h-24 bg-slate-900 rounded-xl bg-cover bg-center shrink-0 relative" :style="{ backgroundImage: `url(${item.imagen_url})` }"></div>
               <div class="w-full">
-                <div class="mb-2">
-                  <span v-if="item.estado === 'reservado'" class="bg-yellow-500 text-slate-900 text-[9px] font-black px-2 py-1 rounded uppercase">Reservado</span>
-                  <span v-else-if="item.estado === 'vendido'" class="bg-red-500 text-white text-[9px] font-black px-2 py-1 rounded uppercase">Vendido</span>
-                  <span v-else class="bg-green-500/20 text-green-400 border border-green-500/20 text-[9px] font-black px-2 py-1 rounded uppercase">Activo</span>
-                </div>
+                <div class="mb-2"><span v-if="item.estado === 'reservado'" class="bg-yellow-500 text-slate-900 text-[9px] font-black px-2 py-1 rounded uppercase">Reservado</span><span v-else-if="item.estado === 'vendido'" class="bg-red-500 text-white text-[9px] font-black px-2 py-1 rounded uppercase">Vendido</span><span v-else class="bg-green-500/20 text-green-400 border border-green-500/20 text-[9px] font-black px-2 py-1 rounded uppercase">Activo</span></div>
                 <h4 class="font-bold text-white leading-tight">{{ item.titulo }}</h4>
                 <p class="text-sm text-green-400 font-black mt-1">${{ formatearPrecio(item.precio) }}</p>
               </div>
             </div>
-
             <div class="mt-4 grid grid-cols-2 gap-2">
-              <button v-if="item.estado === 'disponible' || !item.estado" @click="cambiarEstado('tcg_exchange', item, 'reservado')" class="bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-yellow-500/20"><Bookmark class="w-3 h-3" /> Apartar</button>
+              <button v-if="item.estado === 'disponible' || !item.estado" @click="cambiarEstado('tcg_exchange', item, 'reservado')" class="bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-yellow-500/20 flex items-center justify-center gap-1"><Bookmark class="w-3 h-3" /> Apartar</button>
               <button v-if="item.estado === 'reservado'" @click="cambiarEstado('tcg_exchange', item, 'disponible')" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1">Quitar Reserva</button>
-              <button v-if="item.estado !== 'vendido'" @click="cambiarEstado('tcg_exchange', item, 'vendido')" class="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-green-500/20"><CheckSquare class="w-3 h-3" /> Marcar Vendido</button>
+              <button v-if="item.estado !== 'vendido'" @click="cambiarEstado('tcg_exchange', item, 'vendido')" class="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-green-500/20 flex items-center justify-center gap-1"><CheckSquare class="w-3 h-3" /> Marcar Vendido</button>
               <button v-if="item.estado === 'vendido'" @click="cambiarEstado('tcg_exchange', item, 'disponible')" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1">Deshacer Venta</button>
               <button v-if="item.estado !== 'vendido'" @click="abrirEdicion(item, 'tcg')" class="bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-sky-500/20">Editar</button>
               <button @click="eliminarPublicacion('tcg_exchange', item, 'tcg')" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-red-500/20">Borrar</button>
@@ -261,27 +288,21 @@ onUnmounted(() => { if (canalDashboard) supabase.removeChannel(canalDashboard) }
           <h3 class="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2"><Gem class="w-5 h-5 text-purple-400"/> Mi Colección</h3>
           <router-link to="/add-vitrina" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase flex items-center gap-2 shadow-lg transition-all"><PlusCircle class="w-4 h-4"/> Añadir Artículo</router-link>
         </div>
-
         <div v-if="misArticulos.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700"><p class="text-slate-500 font-bold uppercase tracking-widest">No tienes artículos</p></div>
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div v-for="item in misArticulos" :key="item.id" class="bg-slate-800 rounded-2xl p-4 border border-slate-700 flex flex-col justify-between" :class="{'opacity-50 grayscale': item.estado === 'vendido'}">
             <div class="flex gap-4 items-start">
               <div class="w-20 h-20 bg-slate-900 rounded-xl bg-cover bg-center shrink-0" :style="{ backgroundImage: `url(${item.imagen_url})` }"></div>
               <div class="w-full">
-                <div class="mb-2">
-                  <span v-if="item.estado === 'reservado'" class="bg-yellow-500 text-slate-900 text-[9px] font-black px-2 py-1 rounded uppercase">Reservado</span>
-                  <span v-else-if="item.estado === 'vendido'" class="bg-red-500 text-white text-[9px] font-black px-2 py-1 rounded uppercase">Vendido</span>
-                  <span v-else class="bg-green-500/20 text-green-400 border border-green-500/20 text-[9px] font-black px-2 py-1 rounded uppercase">Activo</span>
-                </div>
+                <div class="mb-2"><span v-if="item.estado === 'reservado'" class="bg-yellow-500 text-slate-900 text-[9px] font-black px-2 py-1 rounded uppercase">Reservado</span><span v-else-if="item.estado === 'vendido'" class="bg-red-500 text-white text-[9px] font-black px-2 py-1 rounded uppercase">Vendido</span><span v-else class="bg-green-500/20 text-green-400 border border-green-500/20 text-[9px] font-black px-2 py-1 rounded uppercase">Activo</span></div>
                 <h4 class="font-bold text-white leading-tight">{{ item.item_nombre }}</h4>
                 <p class="text-sm text-green-400 font-black mt-1">${{ formatearPrecio(item.precio) }}</p>
               </div>
             </div>
-
             <div class="mt-4 grid grid-cols-2 gap-2">
-              <button v-if="item.estado === 'disponible' || !item.estado" @click="cambiarEstado('colecciones', item, 'reservado')" class="bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-yellow-500/20"><Bookmark class="w-3 h-3" /> Apartar</button>
+              <button v-if="item.estado === 'disponible' || !item.estado" @click="cambiarEstado('colecciones', item, 'reservado')" class="bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-yellow-500/20 flex items-center justify-center gap-1"><Bookmark class="w-3 h-3" /> Apartar</button>
               <button v-if="item.estado === 'reservado'" @click="cambiarEstado('colecciones', item, 'disponible')" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1">Quitar Reserva</button>
-              <button v-if="item.estado !== 'vendido'" @click="cambiarEstado('colecciones', item, 'vendido')" class="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-green-500/20"><CheckSquare class="w-3 h-3" /> Marcar Vendido</button>
+              <button v-if="item.estado !== 'vendido'" @click="cambiarEstado('colecciones', item, 'vendido')" class="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-green-500/20 flex items-center justify-center gap-1"><CheckSquare class="w-3 h-3" /> Marcar Vendido</button>
               <button v-if="item.estado === 'vendido'" @click="cambiarEstado('colecciones', item, 'disponible')" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1">Deshacer Venta</button>
               <button v-if="item.estado !== 'vendido'" @click="abrirEdicion(item, 'vitrina')" class="bg-purple-500/10 hover:bg-purple-500 text-purple-400 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-purple-500/20">Editar</button>
               <button @click="eliminarPublicacion('colecciones', item, 'vitrina')" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all border border-red-500/20">Borrar</button>
@@ -295,7 +316,6 @@ onUnmounted(() => { if (canalDashboard) supabase.removeChannel(canalDashboard) }
           <h3 class="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2"><Users class="w-5 h-5 text-green-400"/> Mis Grupos</h3>
           <router-link to="/add-lfg" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase flex items-center gap-2 shadow-lg transition-all"><PlusCircle class="w-4 h-4"/> Buscar Grupo</router-link>
         </div>
-
         <div v-if="misGrupos.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700"><p class="text-slate-500 font-bold uppercase tracking-widest">No hay búsquedas</p></div>
         <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div v-for="item in misGrupos" :key="item.id" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between">
