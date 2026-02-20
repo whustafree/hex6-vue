@@ -1,10 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { supabase } from '../supabase'
-import { showToast } from '../utils/toast' // <--- IMPORTACIÓN DEL SISTEMA DE ALERTAS
+import { showToast } from '../utils/toast'
 import { 
   User, Phone, MapPin, Save, Loader2, CheckCircle, 
-  MessageSquare, Instagram, Link, Eye, EyeOff, ExternalLink 
+  MessageSquare, Instagram, Link, Eye, EyeOff, ExternalLink, Star 
 } from 'lucide-vue-next'
 
 const loading = ref(true)
@@ -15,18 +15,35 @@ const perfil = ref({
   username: '', whatsapp: '', ciudad: 'Rancagua', discord: '', instagram: '', link_grupo: '', mostrar_whatsapp: true, mostrar_redes: true
 })
 
+// NUEVO: Variables para tu reputación
+const valoraciones = ref([])
+
 const getProfile = async () => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
+    
+    // 1. Cargar datos del perfil
     const { data } = await supabase.from('perfiles').select('*').eq('id', session.user.id).single()
     if (data) perfil.value = { ...perfil.value, ...data }
+
+    // 2. Cargar tus estrellas
+    const { data: rep } = await supabase.from('reputacion').select('*').eq('evaluado_id', session.user.id)
+    if (rep) valoraciones.value = rep
+
   } catch (error) { 
     console.error(error) 
   } finally { 
     loading.value = false 
   }
 }
+
+// Calcular tu promedio
+const promedioReputacion = computed(() => {
+  if (valoraciones.value.length === 0) return '0.0'
+  const suma = valoraciones.value.reduce((acc, curr) => acc + curr.estrellas, 0)
+  return (suma / valoraciones.value.length).toFixed(1)
+})
 
 const updateProfile = async () => {
   saving.value = true; success.value = false
@@ -36,11 +53,11 @@ const updateProfile = async () => {
     if (error) throw error
     
     success.value = true
-    showToast('¡Configuración guardada con éxito!', 'success') // <--- ALERTA MODERNA DE ÉXITO
+    showToast('¡Configuración guardada con éxito!', 'success')
     setTimeout(() => { success.value = false }, 3000)
     
   } catch (error) { 
-    showToast('Error al guardar: ' + error.message, 'error') // <--- ALERTA MODERNA DE ERROR
+    showToast('Error al guardar: ' + error.message, 'error')
   } finally { 
     saving.value = false 
   }
@@ -52,15 +69,25 @@ onMounted(getProfile)
 <template>
   <div class="max-w-2xl mx-auto space-y-8 pb-20 p-4 animate-in fade-in duration-500">
     
-    <div class="bg-slate-800 p-6 md:p-8 rounded-3xl border border-slate-700 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
+    <div class="bg-slate-800 p-6 md:p-8 rounded-3xl border border-slate-700 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+      <div class="relative z-10">
         <h2 class="text-3xl font-black italic text-sky-400 uppercase">Mi Perfil</h2>
         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Identidad Geek HEX6</p>
       </div>
       
-      <router-link v-if="perfil.username" :to="'/u/' + perfil.username" class="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all flex items-center gap-2 w-full md:w-auto justify-center border border-sky-600/30 hover:border-sky-500">
-        <ExternalLink class="w-4 h-4" /> Ver Público
-      </router-link>
+      <div class="flex items-center gap-4 relative z-10 w-full md:w-auto">
+        <div class="bg-slate-900 border border-yellow-500/30 px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg">
+          <Star class="w-5 h-5 text-yellow-400 fill-yellow-400" />
+          <div class="flex flex-col">
+            <span class="text-white font-black leading-none text-sm">{{ promedioReputacion }} / 5.0</span>
+            <span class="text-[9px] text-slate-400 uppercase font-bold">{{ valoraciones.length }} Ventas/Votos</span>
+          </div>
+        </div>
+
+        <router-link v-if="perfil.username" :to="'/u/' + perfil.username" class="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all flex items-center gap-2 justify-center border border-sky-600/30 hover:border-sky-500 h-full">
+          <ExternalLink class="w-4 h-4" /> Ver Público
+        </router-link>
+      </div>
     </div>
 
     <div v-if="loading" class="text-center py-12"><Loader2 class="w-10 h-10 animate-spin mx-auto text-sky-500" /></div>
