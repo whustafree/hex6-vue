@@ -4,7 +4,7 @@ import { supabase } from '../supabase'
 import { useRouter } from 'vue-router'
 import { 
   PlusCircle, ShoppingCart, UserPlus, UserCog, 
-  LayoutDashboard, ExternalLink, Clock, Trash2 
+  LayoutDashboard, Clock, Trash2, Edit 
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -12,23 +12,26 @@ const usuario = ref(null)
 const cargando = ref(true)
 const misPublicaciones = ref([])
 
+// Formato de precio
+const formatearPrecio = (precio) => {
+  return new Intl.NumberFormat('es-CL').format(precio)
+}
+
 const cargarMisPublicaciones = async (userId) => {
   try {
-    // Buscamos en las 3 tablas simultáneamente
+    // AHORA TAMBIÉN BUSCAMOS EL PRECIO Y LA DESCRIPCIÓN
     const [tcg, col, lfg] = await Promise.all([
-      supabase.from('tcg_exchange').select('id, titulo, created_at').eq('user_id', userId),
-      supabase.from('colecciones').select('id, item_nombre, created_at').eq('user_id', userId),
-      supabase.from('lfg_posts').select('id, juego_nombre, created_at').eq('user_id', userId)
+      supabase.from('tcg_exchange').select('id, titulo, precio, created_at').eq('user_id', userId),
+      supabase.from('colecciones').select('id, item_nombre, precio, created_at').eq('user_id', userId),
+      supabase.from('lfg_posts').select('id, juego_nombre, descripcion, created_at').eq('user_id', userId)
     ])
 
-    // Juntamos todo en una sola lista etiquetada
     const combinada = [
-      ...(tcg.data || []).map(i => ({ ...i, tipo: 'TCG', nombre: i.titulo, tabla: 'tcg_exchange' })),
-      ...(col.data || []).map(i => ({ ...i, tipo: 'Vitrina', nombre: i.item_nombre, tabla: 'colecciones' })),
-      ...(lfg.data || []).map(i => ({ ...i, tipo: 'LFG', nombre: i.juego_nombre, tabla: 'lfg_posts' }))
+      ...(tcg.data || []).map(i => ({ ...i, tipo: 'TCG', nombre: i.titulo, tabla: 'tcg_exchange', datoDinamico: i.precio })),
+      ...(col.data || []).map(i => ({ ...i, tipo: 'Vitrina', nombre: i.item_nombre, tabla: 'colecciones', datoDinamico: i.precio })),
+      ...(lfg.data || []).map(i => ({ ...i, tipo: 'LFG', nombre: i.juego_nombre, tabla: 'lfg_posts', datoDinamico: i.descripcion }))
     ]
 
-    // Ordenar por fecha (más reciente primero)
     misPublicaciones.value = combinada.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   } catch (error) {
     console.error("Error cargando publicaciones:", error)
@@ -42,8 +45,29 @@ const eliminarPublicacion = async (id, tabla) => {
   
   if (error) alert("Error al eliminar: " + error.message)
   else {
-    // Refrescar la lista localmente
     misPublicaciones.value = misPublicaciones.value.filter(p => p.id !== id)
+  }
+}
+
+// NUEVA FUNCIÓN: Editar publicación
+const editarPublicacion = async (pub) => {
+  if (pub.tipo === 'LFG') {
+    // Si es un grupo, le pedimos la nueva descripción
+    const nuevaDesc = prompt(`Actualiza la descripción para "${pub.nombre}":`, pub.datoDinamico)
+    if (nuevaDesc && nuevaDesc !== pub.datoDinamico) {
+      const { error } = await supabase.from(pub.tabla).update({ descripcion: nuevaDesc }).eq('id', pub.id)
+      if (error) alert("Error: " + error.message)
+      else pub.datoDinamico = nuevaDesc // Actualizamos la pantalla al instante
+    }
+  } else {
+    // Si es TCG o Vitrina, le pedimos el nuevo precio (solo números)
+    const nuevoPrecio = prompt(`Ingresa el nuevo precio para "${pub.nombre}":\n(Solo números, sin puntos ni signos $)`, pub.datoDinamico)
+    if (nuevoPrecio && !isNaN(nuevoPrecio) && parseInt(nuevoPrecio) !== pub.datoDinamico) {
+      const precioNumerico = parseInt(nuevoPrecio)
+      const { error } = await supabase.from(pub.tabla).update({ precio: precioNumerico }).eq('id', pub.id)
+      if (error) alert("Error: " + error.message)
+      else pub.datoDinamico = precioNumerico // Actualizamos la pantalla al instante
+    }
   }
 }
 
@@ -99,20 +123,32 @@ onMounted(async () => {
       </h4>
       
       <div v-if="misPublicaciones.length > 0" class="space-y-3">
-        <div v-for="pub in misPublicaciones" :key="pub.id" class="flex items-center justify-between bg-slate-900/50 p-4 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all">
+        <div v-for="pub in misPublicaciones" :key="pub.id" class="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-900/50 p-4 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all gap-4">
+          
           <div class="flex items-center gap-4">
             <span :class="{
               'text-sky-400 bg-sky-400/10': pub.tipo === 'TCG',
               'text-purple-400 bg-purple-400/10': pub.tipo === 'Vitrina',
               'text-green-400 bg-green-400/10': pub.tipo === 'LFG'
-            }" class="text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest">
+            }" class="text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest shrink-0">
               {{ pub.tipo }}
             </span>
-            <p class="font-bold text-slate-200 text-sm">{{ pub.nombre }}</p>
+            <div>
+              <p class="font-bold text-slate-200 text-sm truncate">{{ pub.nombre }}</p>
+              <p v-if="pub.tipo !== 'LFG'" class="text-xs text-green-400 font-black mt-0.5">${{ formatearPrecio(pub.datoDinamico) }}</p>
+              <p v-else class="text-xs text-slate-500 font-bold mt-0.5 truncate max-w-[200px] sm:max-w-[400px]">{{ pub.datoDinamico }}</p>
+            </div>
           </div>
-          <button @click="eliminarPublicacion(pub.id, pub.tabla)" class="p-2 text-slate-600 hover:text-red-500 transition-colors">
-            <Trash2 class="w-5 h-5" />
-          </button>
+          
+          <div class="flex items-center justify-end gap-2 shrink-0">
+            <button @click="editarPublicacion(pub)" class="p-2 text-slate-500 hover:text-sky-400 bg-slate-800 rounded-xl transition-colors" title="Editar precio / descripción">
+              <Edit class="w-5 h-5" />
+            </button>
+            <button @click="eliminarPublicacion(pub.id, pub.tabla)" class="p-2 text-slate-500 hover:text-red-500 bg-slate-800 rounded-xl transition-colors" title="Eliminar publicación">
+              <Trash2 class="w-5 h-5" />
+            </button>
+          </div>
+
         </div>
       </div>
 
