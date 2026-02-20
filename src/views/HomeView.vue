@@ -62,13 +62,18 @@ onMounted(async () => {
         </div>
         
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div v-for="card in tcgItems" :key="card.id" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-sky-500 transition-all hover:-translate-y-1 group">
-                <div class="h-32 bg-slate-900 rounded-xl mb-3 bg-cover bg-center" :style="{ backgroundImage: `url(${card.imagen_url})` }"></div>
-                <h4 class="font-bold text-sm text-white truncate">{{ card.titulo }}</h4>
-                <div class="flex justify-between items-center mt-2">
-                    <span class="text-[10px] bg-slate-900 px-2 py-1 rounded text-slate-400 uppercase font-bold">{{ card.juego }}</span>
-                    <p class="text-xs text-green-400 font-black">${{ formatearPrecio(card.precio) }}</p>
+            <div v-for="card in tcgItems" :key="card.id" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-sky-500 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+                <div>
+                  <div class="h-32 bg-slate-900 rounded-xl mb-3 bg-cover bg-center" :style="{ backgroundImage: `url(${card.imagen_url})` }"></div>
+                  <h4 class="font-bold text-sm text-white truncate">{{ card.titulo }}</h4>
+                  <div class="flex justify-between items-center mt-2 mb-3">
+                      <span class="text-[10px] bg-slate-900 px-2 py-1 rounded text-slate-400 uppercase font-bold">{{ card.juego }}</span>
+                      <p class="text-xs text-green-400 font-black">${{ formatearPrecio(card.precio) }}</p>
+                  </div>
                 </div>
+                <a :href="'https://wa.me/' + card.telefono + '?text=Hola,%20vi%20tu%20carta%20' + card.titulo + '%20en%20el%20inicio%20de%20HEX6'" target="_blank" class="block text-center w-full bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white py-2 rounded-lg transition-all text-xs font-bold uppercase tracking-widest mt-auto">
+                  Contactar
+                </a>
             </div>
         </div>
         </section>
@@ -84,13 +89,18 @@ onMounted(async () => {
         </div>
         
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div v-for="item in colItems" :key="item.id" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-purple-500 transition-all hover:-translate-y-1">
-                <div class="h-32 bg-slate-900 rounded-xl mb-3 bg-cover bg-center" :style="{ backgroundImage: `url(${item.imagen_url})` }"></div>
-                <h4 class="font-bold text-sm text-white truncate">{{ item.item_nombre }}</h4>
-                <div class="flex justify-between items-center mt-2">
-                    <span class="text-[10px] bg-purple-900/30 text-purple-400 px-2 py-1 rounded uppercase font-bold">{{ item.categoria }}</span>
-                    <p class="text-xs text-green-400 font-black">${{ formatearPrecio(item.precio) }}</p>
+            <div v-for="item in colItems" :key="item.id" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-purple-500 transition-all hover:-translate-y-1 flex flex-col justify-between">
+                <div>
+                  <div class="h-32 bg-slate-900 rounded-xl mb-3 bg-cover bg-center" :style="{ backgroundImage: `url(${item.imagen_url})` }"></div>
+                  <h4 class="font-bold text-sm text-white truncate">{{ item.item_nombre }}</h4>
+                  <div class="flex justify-between items-center mt-2 mb-3">
+                      <span class="text-[10px] bg-purple-900/30 text-purple-400 px-2 py-1 rounded uppercase font-bold">{{ item.categoria }}</span>
+                      <p class="text-xs text-green-400 font-black">${{ formatearPrecio(item.precio) }}</p>
+                  </div>
                 </div>
+                <a :href="'https://wa.me/' + item.telefono + '?text=Hola,%20me%20interesa%20tu%20articulo%20' + item.item_nombre + '%20que%20vi%20en%20HEX6'" target="_blank" class="block text-center w-full bg-purple-600/20 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-lg transition-all text-xs font-bold uppercase tracking-widest mt-auto">
+                  Contactar
+                </a>
             </div>
         </div>
         </section>
