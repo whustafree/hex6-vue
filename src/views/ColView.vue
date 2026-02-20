@@ -6,9 +6,13 @@ import { Search, Gem, Loader2, Filter } from 'lucide-vue-next'
 const colItems = ref([])
 const cargando = ref(true)
 const busqueda = ref('') 
-const categoriaFiltro = ref('Todas') // Filtro de categoría
+const categoriaFiltro = ref('Todas')
 
-// Traer TODOS los coleccionables
+// MEJORA 1: Función para formatear el dinero
+const formatearPrecio = (precio) => {
+  return new Intl.NumberFormat('es-CL').format(precio)
+}
+
 onMounted(async () => {
   try {
     const { data } = await supabase
@@ -24,7 +28,6 @@ onMounted(async () => {
   }
 })
 
-// Filtrar por texto Y por categoría
 const itemsFiltrados = computed(() => {
   return colItems.value.filter(item => {
     const coincideTexto = item.item_nombre.toLowerCase().includes(busqueda.value.toLowerCase())
@@ -75,14 +78,17 @@ const itemsFiltrados = computed(() => {
     </div>
 
     <div v-else-if="itemsFiltrados.length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div v-for="item in itemsFiltrados" :key="item.id" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-purple-500 transition-all hover:-translate-y-1 group">
-        <div class="h-44 bg-slate-900 rounded-xl mb-3 bg-cover bg-center" :style="{ backgroundImage: `url(${item.imagen_url})` }"></div>
-        <h4 class="font-bold text-sm text-white truncate">{{ item.item_nombre }}</h4>
-        <div class="flex justify-between items-center mt-2">
-            <span class="text-[10px] bg-purple-900/30 text-purple-400 px-2 py-1 rounded uppercase font-bold">{{ item.categoria }}</span>
-            <p class="text-xs text-green-400 font-black">${{ item.precio }}</p>
+      <div v-for="item in itemsFiltrados" :key="item.id" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-purple-500 transition-all hover:-translate-y-1 group flex flex-col justify-between">
+        <div>
+          <div class="h-44 bg-slate-900 rounded-xl mb-3 bg-cover bg-center" :style="{ backgroundImage: `url(${item.imagen_url})` }"></div>
+          <h4 class="font-bold text-sm text-white truncate">{{ item.item_nombre }}</h4>
+          <div class="flex justify-between items-center mt-2 mb-3">
+              <span class="text-[10px] bg-purple-900/30 text-purple-400 px-2 py-1 rounded uppercase font-bold">{{ item.categoria }}</span>
+              <p class="text-xs text-green-400 font-black">${{ formatearPrecio(item.precio) }}</p>
+          </div>
         </div>
-        <a :href="'https://wa.me/' + item.telefono + '?text=Hola,%20me%20interesa%20tu%20' + item.item_nombre" target="_blank" class="mt-3 block text-center w-full bg-purple-600/20 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-lg transition-all text-xs font-bold uppercase tracking-widest">
+        
+        <a :href="'https://wa.me/' + item.telefono + '?text=Hola,%20me%20interesa%20tu%20articulo%20' + item.item_nombre + '%20que%20vi%20en%20la%20Vitrina%20de%20HEX6'" target="_blank" class="block mt-auto text-center w-full bg-purple-600/20 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-lg transition-all text-xs font-bold uppercase tracking-widest">
           Comprar
         </a>
       </div>
