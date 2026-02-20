@@ -10,19 +10,18 @@ import { toasts, showToast } from './utils/toast'
 
 const router = useRouter()
 const usuario = ref(null)
-let canalGlobal = null // Canal para escuchar mensajes en toda la app
+let canalGlobal = null 
 
 const iniciarNotificacionesGlobales = (userId) => {
   if (canalGlobal) supabase.removeChannel(canalGlobal)
 
   canalGlobal = supabase.channel('global_notifications')
-    // Escucha si alguien TE HACE una pregunta (tú eres el vendedor)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'preguntas', filter: `vendedor_id=eq.${userId}` }, payload => {
       showToast('🔔 ¡Alguien hizo una pregunta en tu publicación!', 'info')
     })
-    // Escucha si un vendedor TE RESPONDE (tú eres el remitente)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'preguntas', filter: `remitente_id=eq.${userId}` }, payload => {
-       if (payload.new.respuesta) {
+       // CORRECCIÓN: Solo avisar si la respuesta es NUEVA (evita alertas dobles)
+       if (payload.new.respuesta && payload.old.respuesta !== payload.new.respuesta) {
           showToast('🔔 ¡El vendedor respondió tu pregunta!', 'success')
        }
     })
