@@ -1,13 +1,62 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/hex6-icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HEX6 | Hub Geek</title>
+    
+    <style>
+      body { margin: 0; background-color: #020617; } /* Fondo oscuro igual al de tu web */
+      .preloader {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      .hex-spin {
+        width: 60px;
+        height: 60px;
+        border: 3px solid transparent;
+        border-top-color: #38bdf8; /* Celeste */
+        border-bottom-color: #c084fc; /* Morado */
+        border-radius: 30%; /* Forma dinámica */
+        animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+        margin-bottom: 24px;
+      }
+      .loading-text {
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.4em;
+        text-transform: uppercase;
+        animation: pulse-text 2s infinite;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); border-radius: 30%; }
+        50% { transform: rotate(180deg); border-radius: 50%; border-top-color: #c084fc; border-bottom-color: #38bdf8; box-shadow: 0 0 40px rgba(192, 132, 252, 0.6); }
+        100% { transform: rotate(360deg); border-radius: 30%; }
+      }
+      @keyframes pulse-text {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 1; color: #38bdf8; }
+      }
+    </style>
   </head>
+  
   <body>
-    <div id="app"></div>
+    <div id="app">
+      
+      <div class="preloader">
+        <div class="hex-spin"></div>
+        <div class="loading-text">Iniciando HEX6...</div>
+      </div>
+
+    </div>
+    
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
