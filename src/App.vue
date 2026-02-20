@@ -57,9 +57,7 @@ const cerrarSesion = async () => {
             </span>
           </div>
         </router-link>
-<router-link to="/reglas" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-yellow-400">
-  <ShieldCheck class="w-3 h-3" /> Reglas
-</router-link>
+
         <div class="flex items-center gap-4 md:gap-8">
           
           <div class="hidden md:flex gap-6 mr-4 border-r border-slate-800 pr-6">
@@ -73,7 +71,9 @@ const cerrarSesion = async () => {
               <Users class="w-3 h-3" /> Grupos
             </router-link>
           </div>
-
+<router-link to="/reglas" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-yellow-400">
+  <ShieldCheck class="w-3 h-3" /> Reglas
+</router-link>
           <div v-if="usuario" class="flex items-center gap-3">
             <router-link to="/dashboard" class="flex items-center gap-3 group bg-slate-900/50 p-1.5 pr-4 rounded-xl border border-slate-800 hover:border-sky-500 transition-all">
               <div class="bg-sky-500/20 p-2 rounded-lg group-hover:bg-sky-500 transition-colors">
