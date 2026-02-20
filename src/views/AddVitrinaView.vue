@@ -105,11 +105,11 @@ const subirPublicacion = async () => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="space-y-2">
             <label class="text-xs font-black uppercase text-slate-500">Nombre</label>
-            <input v-model="nuevoItem.item_nombre" type="text" required class="input-hex">
+            <input v-model="nuevoItem.item_nombre" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold">
           </div>
           <div class="space-y-2">
             <label class="text-xs font-black uppercase text-slate-500">Categoría</label>
-            <select v-model="nuevoItem.categoria" class="input-hex">
+            <select v-model="nuevoItem.categoria" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold appearance-none">
               <option>Figuras</option>
               <option>Consolas</option>
               <option>Retro</option>
@@ -121,17 +121,17 @@ const subirPublicacion = async () => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div class="space-y-2">
             <label class="text-xs font-black uppercase text-slate-500">Precio</label>
-            <input v-model="nuevoItem.precio" type="number" required class="input-hex">
+            <input v-model="nuevoItem.precio" type="number" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold">
           </div>
           <div class="space-y-2">
             <label class="text-xs font-black uppercase text-slate-500">WhatsApp</label>
-            <input v-model="nuevoItem.telefono" type="text" required class="input-hex">
+            <input v-model="nuevoItem.telefono" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold">
           </div>
         </div>
 
         <div class="space-y-2">
           <label class="text-xs font-black uppercase text-slate-500">Descripción</label>
-          <textarea v-model="nuevoItem.descripcion" rows="3" class="input-hex"></textarea>
+          <textarea v-model="nuevoItem.descripcion" rows="3" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold"></textarea>
         </div>
 
         <button :disabled="enviando" type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
@@ -143,9 +143,3 @@ const subirPublicacion = async () => {
     </div>
   </div>
 </template>
-
-<style scoped>
-.input-hex {
-  @apply w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold;
-}
-</style>

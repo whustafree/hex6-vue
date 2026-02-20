@@ -27,7 +27,6 @@ const getProfile = async () => {
     if (!session) return
     const { data } = await supabase.from('perfiles').select('*').eq('id', session.user.id).single()
     if (data) {
-      // Fusionamos los datos para no perder los valores por defecto si la BD devuelve null
       perfil.value = { ...perfil.value, ...data }
     }
   } catch (error) { console.error(error) } 
@@ -73,12 +72,12 @@ onMounted(getProfile)
 
         <div class="space-y-2">
           <label class="text-[10px] font-black uppercase text-slate-500">Nombre de Usuario (Público)</label>
-          <input v-model="perfil.username" type="text" placeholder="Ej: Gustavo_Geek" class="input-hex">
+          <input v-model="perfil.username" type="text" placeholder="Ej: Gustavo_Geek" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700">
         </div>
 
         <div class="space-y-2">
           <label class="text-[10px] font-black uppercase text-slate-500">Ciudad</label>
-          <select v-model="perfil.ciudad" class="input-hex appearance-none">
+          <select v-model="perfil.ciudad" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold appearance-none">
             <option>Rancagua</option><option>Machalí</option><option>Graneros</option><option>Doñihue</option>
           </select>
         </div>
@@ -93,7 +92,7 @@ onMounted(getProfile)
               {{ perfil.mostrar_whatsapp ? 'Público' : 'Oculto' }}
             </button>
           </div>
-          <input v-model="perfil.whatsapp" type="text" placeholder="56912345678" class="input-hex">
+          <input v-model="perfil.whatsapp" type="text" placeholder="56912345678" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700">
         </div>
       </div>
 
@@ -111,17 +110,17 @@ onMounted(getProfile)
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="space-y-2">
             <label class="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1"><MessageSquare class="w-3 h-3 text-indigo-400"/> Usuario Discord</label>
-            <input v-model="perfil.discord" type="text" placeholder="usuario#1234" class="input-hex">
+            <input v-model="perfil.discord" type="text" placeholder="usuario#1234" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700">
           </div>
           <div class="space-y-2">
             <label class="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1"><Instagram class="w-3 h-3 text-pink-500"/> Instagram</label>
-            <input v-model="perfil.instagram" type="text" placeholder="@tu_cuenta" class="input-hex">
+            <input v-model="perfil.instagram" type="text" placeholder="@tu_cuenta" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700">
           </div>
         </div>
 
         <div class="space-y-2">
           <label class="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1"><Link class="w-3 h-3 text-sky-400"/> Link a tu Grupo de Discord / WhatsApp</label>
-          <input v-model="perfil.link_grupo" type="url" placeholder="https://discord.gg/..." class="input-hex">
+          <input v-model="perfil.link_grupo" type="url" placeholder="https://discord.gg/..." class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700">
           <p class="text-[9px] text-slate-500 font-bold uppercase mt-1">Ideal si administras una comunidad local.</p>
         </div>
       </div>
@@ -135,9 +134,3 @@ onMounted(getProfile)
     </form>
   </div>
 </template>
-
-<style scoped>
-.input-hex {
-  @apply w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700;
-}
-</style>
