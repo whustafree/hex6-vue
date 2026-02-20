@@ -10,7 +10,8 @@ import AddTcgView from './views/AddTcgView.vue'
 import AddVitrinaView from './views/AddVitrinaView.vue'
 import AddLfgView from './views/AddLfgView.vue'
 import RulesView from './views/RulesView.vue'
-import FavoritosView from './views/FavoritosView.vue' 
+import FavoritosView from './views/FavoritosView.vue'
+import PublicProfileView from './views/PublicProfileView.vue' // <-- NUEVA IMPORTACIÓN
 
 const routes = [
   { path: '/', component: HomeView },
@@ -24,7 +25,8 @@ const routes = [
   { path: '/add-vitrina', component: AddVitrinaView },
   { path: '/add-lfg', component: AddLfgView },
   { path: '/reglas', component: RulesView },
-  { path: '/favoritos', component: FavoritosView }
+  { path: '/favoritos', component: FavoritosView },
+  { path: '/u/:username', component: PublicProfileView } // <-- NUEVA RUTA DINÁMICA
 ]
 
 const router = createRouter({
