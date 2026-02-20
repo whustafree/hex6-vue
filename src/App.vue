@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { 
-  Hexagon, LogOut, User, Layers, Gem, Users, LayoutDashboard, ShieldCheck 
+  Hexagon, LogOut, User, Layers, Gem, Users, LayoutDashboard, ShieldCheck, Heart 
 } from 'lucide-vue-next'
 import { supabase } from './supabase'
 import { useRouter } from 'vue-router'
@@ -52,8 +52,9 @@ const cerrarSesion = async () => {
         </div>
 
         <div class="flex items-center gap-2 md:gap-4">
-          <router-link to="/reglas" class="md:hidden p-2 text-slate-400" active-class="text-yellow-400">
-            <ShieldCheck class="w-5 h-5" />
+          
+          <router-link to="/favoritos" class="p-2 md:p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-pink-500 hover:border-pink-500/50 transition-all">
+            <Heart class="w-5 h-5" />
           </router-link>
 
           <div v-if="usuario" class="flex items-center gap-2">
@@ -65,14 +66,14 @@ const cerrarSesion = async () => {
                 {{ usuario.email.split('@')[0] }}
               </p>
             </router-link>
-            <button @click="cerrarSesion" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 md:p-2.5 rounded-xl border border-red-500/20 transition-all">
+            <button @click="cerrarSesion" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl border border-red-500/20 transition-all">
               <LogOut class="w-5 h-5" />
             </button>
           </div>
 
           <router-link v-else to="/login" class="btn-entrar">
             <User class="w-4 h-4" />
-            <span>Entrar</span>
+            <span class="hidden xs:block">Entrar</span>
           </router-link>
         </div>
       </div>
@@ -94,8 +95,12 @@ const cerrarSesion = async () => {
   @apply flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors;
 }
 .btn-entrar {
-  @apply flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-4 md:px-6 py-2 md:py-2.5 rounded-xl transition-all uppercase tracking-widest shadow-lg;
+  @apply flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all uppercase tracking-widest shadow-lg;
 }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@media (max-width: 400px) {
+  .xs\:block { display: none; }
+}
 </style>

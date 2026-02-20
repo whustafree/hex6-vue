@@ -1,22 +1,51 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { supabase } from '../supabase'
-import { Search, Gem, Loader2, Filter, ArrowUpDown, Share2 } from 'lucide-vue-next'
+import { 
+  Search, 
+  Gem, 
+  Loader2, 
+  Filter, 
+  ArrowUpDown, 
+  Share2, 
+  Heart 
+} from 'lucide-vue-next'
 
 const colItems = ref([])
 const cargando = ref(true)
 const busqueda = ref('') 
 const categoriaFiltro = ref('Todas')
 const orden = ref('recientes')
+const misFavoritosIds = ref([])
 
+// Función para formatear el dinero
 const formatearPrecio = (precio) => {
   return new Intl.NumberFormat('es-CL').format(precio)
 }
 
+// Cargar favoritos del usuario (Tipo Vitrina)
+const cargarFavoritos = async () => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (session) {
+    const { data } = await supabase
+      .from('favoritos')
+      .select('item_id')
+      .eq('user_id', session.user.id)
+      .eq('tipo', 'Vitrina')
+    
+    if (data) misFavoritosIds.value = data.map(f => f.item_id)
+  }
+}
+
 onMounted(async () => {
   try {
-    const { data } = await supabase.from('colecciones').select('*').order('id', { ascending: false })
+    const { data } = await supabase
+      .from('colecciones')
+      .select('*')
+      .order('id', { ascending: false })
+    
     if (data) colItems.value = data
+    await cargarFavoritos()
   } catch (error) {
     console.error('Error:', error)
   } finally {
@@ -24,6 +53,7 @@ onMounted(async () => {
   }
 })
 
+// Filtros y Ordenamiento
 const itemsFiltrados = computed(() => {
   let resultado = colItems.value.filter(item => {
     const coincideTexto = item.item_nombre.toLowerCase().includes(busqueda.value.toLowerCase())
@@ -38,22 +68,37 @@ const itemsFiltrados = computed(() => {
   return resultado
 })
 
-// NUEVA FUNCIÓN: Compartir Artículo
+// Función: Compartir
 const compartirArticulo = async (item) => {
-  const textoPromo = `🔥 ¡Mira este artículo ${item.item_nombre} a $${formatearPrecio(item.precio)} en HEX6!\n\nRevisa la vitrina aquí: https://hex6.vercel.app/vitrina`
-  
+  const textoPromo = `🔥 ¡Mira esto! ${item.item_nombre} a $${formatearPrecio(item.precio)} en HEX6\n\nVer aquí: https://hex6.vercel.app/vitrina`
   if (navigator.share) {
-    try {
-      await navigator.share({
-        title: 'HEX6 Vitrina Geek',
-        text: textoPromo
-      })
-    } catch (error) {
-      console.log('Compartir cancelado', error)
-    }
+    try { await navigator.share({ title: 'HEX6 Vitrina', text: textoPromo }) } 
+    catch (e) { console.log(e) }
   } else {
     navigator.clipboard.writeText(textoPromo)
-    alert('¡Texto copiado al portapapeles! Ya puedes pegarlo en WhatsApp o redes sociales.')
+    alert('¡Link copiado!')
+  }
+}
+
+// Función: Toggle Favorito
+const toggleFavorito = async (item) => {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return alert('Inicia sesión para guardar favoritos')
+
+  if (misFavoritosIds.value.includes(item.id)) {
+    const { error } = await supabase.from('favoritos').delete()
+      .eq('item_id', item.id).eq('user_id', session.user.id).eq('tipo', 'Vitrina')
+    if (!error) misFavoritosIds.value = misFavoritosIds.value.filter(id => id !== item.id)
+  } else {
+    const { error } = await supabase.from('favoritos').insert({
+      user_id: session.user.id,
+      item_id: item.id,
+      tipo: 'Vitrina',
+      titulo: item.item_nombre,
+      imagen_url: item.imagen_url,
+      precio: item.precio
+    })
+    if (!error) misFavoritosIds.value.push(item.id)
   }
 }
 </script>
@@ -69,12 +114,12 @@ const compartirArticulo = async (item) => {
       <div class="flex flex-col md:flex-row gap-4">
         <div class="relative flex-1">
           <Search class="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-          <input v-model="busqueda" type="text" placeholder="Buscar figura, consola..." class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 transition-colors">
+          <input v-model="busqueda" type="text" placeholder="Buscar figura, consola..." class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-purple-500">
         </div>
         
-        <div class="relative w-full md:w-48 shrink-0">
+        <div class="relative w-full md:w-48">
           <Filter class="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-          <select v-model="categoriaFiltro" class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 appearance-none cursor-pointer font-bold">
+          <select v-model="categoriaFiltro" class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl appearance-none cursor-pointer font-bold">
             <option value="Todas">Todas</option>
             <option value="Figuras">Figuras</option>
             <option value="Consolas">Consolas</option>
@@ -83,9 +128,9 @@ const compartirArticulo = async (item) => {
           </select>
         </div>
 
-        <div class="relative w-full md:w-56 shrink-0">
+        <div class="relative w-full md:w-56">
           <ArrowUpDown class="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-          <select v-model="orden" class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 appearance-none cursor-pointer font-bold">
+          <select v-model="orden" class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl appearance-none cursor-pointer font-bold">
             <option value="recientes">Más Recientes</option>
             <option value="menor">Menor Precio</option>
             <option value="mayor">Mayor Precio</option>
@@ -99,10 +144,16 @@ const compartirArticulo = async (item) => {
     </div>
 
     <div v-else-if="itemsFiltrados.length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div v-for="item in itemsFiltrados" :key="item.id" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-purple-500 transition-all hover:-translate-y-1 group flex flex-col justify-between relative">
+      <div v-for="item in itemsFiltrados" :key="item.id" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-purple-500 transition-all hover:-translate-y-1 group flex flex-col justify-between relative overflow-hidden shadow-xl">
         
-        <button @click="compartirArticulo(item)" class="absolute top-5 right-5 bg-slate-900/80 hover:bg-purple-500 text-slate-300 hover:text-white p-2 rounded-xl backdrop-blur-sm transition-all z-10 border border-slate-700 hover:border-purple-400 shadow-lg" title="Compartir">
+        <button @click="compartirArticulo(item)" class="absolute top-4 right-4 bg-slate-950/80 hover:bg-purple-600 text-white p-2 rounded-xl backdrop-blur-md z-20 border border-slate-700 transition-all">
           <Share2 class="w-4 h-4" />
+        </button>
+
+        <button @click="toggleFavorito(item)" 
+          class="absolute top-4 left-4 p-2 rounded-xl backdrop-blur-md z-20 border transition-all"
+          :class="misFavoritosIds.includes(item.id) ? 'bg-pink-600 border-pink-400 text-white' : 'bg-slate-950/80 border-slate-700 text-slate-400'">
+          <Heart class="w-4 h-4" :fill="misFavoritosIds.includes(item.id) ? 'currentColor' : 'none'" />
         </button>
 
         <div>
@@ -114,14 +165,10 @@ const compartirArticulo = async (item) => {
           </div>
         </div>
         
-        <a :href="'https://wa.me/' + item.telefono + '?text=Hola,%20me%20interesa%20tu%20articulo%20' + item.item_nombre + '%20que%20vi%20en%20la%20Vitrina%20de%20HEX6'" target="_blank" class="block mt-auto text-center w-full bg-purple-600/20 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-lg transition-all text-xs font-bold uppercase tracking-widest">
+        <a :href="'https://wa.me/' + item.telefono + '?text=Hola,%20vi%20tu%20anuncio%20de%20' + item.item_nombre + '%20en%20HEX6'" target="_blank" class="block text-center w-full bg-purple-600/20 hover:bg-purple-600 text-purple-400 hover:text-white py-2 rounded-lg transition-all text-xs font-bold uppercase tracking-widest mt-auto">
           Comprar
         </a>
       </div>
-    </div>
-
-    <div v-else class="text-center py-10 opacity-50 bg-slate-800 rounded-3xl border border-slate-700">
-        <p>No encontramos artículos con esos filtros.</p>
     </div>
 
   </div>
