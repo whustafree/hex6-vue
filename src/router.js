@@ -7,6 +7,7 @@ import TcgView from './views/TcgView.vue'
 import ColView from './views/ColView.vue'
 import LfgView from './views/LfgView.vue'
 import LoginView from './views/LoginView.vue'
+import RulesView from './views/RulesView.vue'
 
 // Vistas Privadas
 import DashboardView from './views/DashboardView.vue'
@@ -15,6 +16,7 @@ import AddTcgView from './views/AddTcgView.vue'
 import AddVitrinaView from './views/AddVitrinaView.vue'
 import AddLfgView from './views/AddLfgView.vue'
 
+
 const routes = [
   // --- RUTAS PÚBLICAS ---
   { path: '/', component: HomeView },
@@ -22,6 +24,7 @@ const routes = [
   { path: '/vitrina', component: ColView },
   { path: '/grupos', component: LfgView },
   { path: '/login', component: LoginView },
+  { path: '/reglas', component: RulesView },
   
   // --- RUTAS PRIVADAS (Requieren Sesión) ---
   { path: '/dashboard', component: DashboardView, meta: { requiresAuth: true } },

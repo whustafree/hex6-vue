@@ -40,7 +40,9 @@ const cerrarSesion = async () => {
     
     <nav class="sticky top-0 z-50 p-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 shadow-lg shadow-sky-900/10">
       <div class="max-w-6xl mx-auto flex justify-between items-center">
-        
+        <router-link to="/reglas" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-yellow-400">
+  <ShieldCheck class="w-3 h-3" /> Reglas
+</router-link>
         <router-link to="/" class="flex items-center gap-3 group relative pl-2">
           <div class="relative flex items-center justify-center">
             <div class="absolute inset-0 bg-sky-500 blur-md opacity-20 group-hover:opacity-60 transition-opacity duration-500 rounded-full"></div>
