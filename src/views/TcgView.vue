@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { supabase } from '../supabase'
 import { 
-  Search, Layers, Loader2, ArrowUpDown, Share2, Heart, X, User 
+  Search, Layers, Loader2, Heart, X, User, MessageCircle, Send, CornerDownRight 
 } from 'lucide-vue-next'
 
 const tcgItems = ref([])
@@ -11,17 +11,42 @@ const busqueda = ref('')
 const orden = ref('recientes')
 const misFavoritosIds = ref([])
 
-// Lógica del Modal y Vendedor
+// Lógica Modal y Q&A
 const cartaSeleccionada = ref(null)
 const vendedorSeleccionado = ref(null)
+
+const currentUser = ref(null)
+const preguntas = ref([])
+const nuevaPregunta = ref('')
+const enviandoPregunta = ref(false)
+const respuestasPendientes = ref({})
+
+const cargarPreguntas = async (itemId) => {
+  const { data } = await supabase.from('preguntas').select('*').eq('item_id', itemId).eq('tipo_item', 'tcg').order('created_at', { ascending: true })
+  if (data && data.length > 0) {
+    const userIds = [...new Set(data.map(p => p.remitente_id))]
+    const { data: perfiles } = await supabase.from('perfiles').select('id, username').in('id', userIds)
+    const map = {}
+    if(perfiles) perfiles.forEach(p => map[p.id] = p.username)
+    preguntas.value = data.map(p => ({ ...p, remitente_nombre: map[p.remitente_id] || 'Usuario' }))
+  } else {
+    preguntas.value = []
+  }
+}
 
 const abrirDetalle = async (carta) => {
   cartaSeleccionada.value = carta
   vendedorSeleccionado.value = null
+  preguntas.value = []
+
+  const { data: { session } } = await supabase.auth.getSession()
+  currentUser.value = session ? session.user : null
+
   if (carta.user_id) {
     const { data } = await supabase.from('perfiles').select('username, ciudad').eq('id', carta.user_id).single()
     if (data) vendedorSeleccionado.value = data
   }
+  await cargarPreguntas(carta.id)
 }
 
 const cerrarDetalle = () => { cartaSeleccionada.value = null }
@@ -63,29 +88,51 @@ const toggleFavorito = async (carta) => {
     misFavoritosIds.value.push(carta.id)
   }
 }
+
+const enviarPregunta = async () => {
+  if(!nuevaPregunta.value.trim() || !currentUser.value) return
+  enviandoPregunta.value = true
+  try {
+    const { error } = await supabase.from('preguntas').insert({
+      item_id: cartaSeleccionada.value.id, tipo_item: 'tcg',
+      remitente_id: currentUser.value.id, vendedor_id: cartaSeleccionada.value.user_id,
+      pregunta: nuevaPregunta.value
+    })
+    if (error) throw error
+    nuevaPregunta.value = ''
+    await cargarPreguntas(cartaSeleccionada.value.id)
+  } catch (e) { alert(e.message) } finally { enviandoPregunta.value = false }
+}
+
+const enviarRespuesta = async (preguntaId) => {
+  const texto = respuestasPendientes.value[preguntaId]
+  if (!texto || !texto.trim()) return
+  try {
+    const { error } = await supabase.from('preguntas').update({ respuesta: texto }).eq('id', preguntaId)
+    if (error) throw error
+    respuestasPendientes.value[preguntaId] = ''
+    await cargarPreguntas(cartaSeleccionada.value.id)
+  } catch(e) { alert(e.message) }
+}
 </script>
 
 <template>
   <div class="space-y-8 pb-20 animate-in fade-in duration-500">
     <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-lg">
-      <h2 class="text-3xl font-black italic text-sky-400 flex items-center gap-3 mb-6 uppercase">
-        <Layers class="w-8 h-8" /> Mercado TCG
-      </h2>
+      <h2 class="text-3xl font-black italic text-sky-400 flex items-center gap-3 mb-6 uppercase"><Layers class="w-8 h-8" /> Mercado TCG</h2>
       <div class="flex flex-col md:flex-row gap-4">
         <div class="relative flex-1">
           <Search class="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
           <input v-model="busqueda" type="text" placeholder="Buscar carta o juego..." class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:border-sky-500 outline-none">
         </div>
-        <select v-model="orden" class="bg-slate-900 border border-slate-700 text-white px-6 py-3 rounded-xl font-bold outline-none"><option value="recientes">Recientes</option><option value="menor">Precio Bajo</option><option value="mayor">Precio Alto</option></select>
+        <select v-model="orden" class="bg-slate-900 border border-slate-700 text-white px-6 py-3 rounded-xl font-bold outline-none appearance-none"><option value="recientes">Recientes</option><option value="menor">Precio Bajo</option><option value="mayor">Precio Alto</option></select>
       </div>
     </div>
 
     <div v-if="cargando" class="text-center py-12"><Loader2 class="w-10 h-10 animate-spin mx-auto text-sky-500" /></div>
     <div v-else-if="cartasFiltradas.length > 0" class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div v-for="card in cartasFiltradas" :key="card.id" @click="abrirDetalle(card)" class="bg-slate-800 rounded-2xl p-3 border border-slate-700 hover:border-sky-500 transition-all cursor-pointer relative group">
-        <button @click.stop="toggleFavorito(card)" class="absolute top-4 left-4 z-10 p-2 rounded-xl backdrop-blur-md border border-slate-700" :class="misFavoritosIds.includes(card.id) ? 'bg-pink-600 text-white' : 'bg-slate-950/80 text-slate-400'">
-          <Heart class="w-4 h-4" :fill="misFavoritosIds.includes(card.id) ? 'currentColor' : 'none'" />
-        </button>
+        <button @click.stop="toggleFavorito(card)" class="absolute top-4 left-4 z-10 p-2 rounded-xl backdrop-blur-md border border-slate-700" :class="misFavoritosIds.includes(card.id) ? 'bg-pink-600 text-white' : 'bg-slate-950/80 text-slate-400'"><Heart class="w-4 h-4" :fill="misFavoritosIds.includes(card.id) ? 'currentColor' : 'none'" /></button>
         <div class="h-44 bg-slate-900 rounded-xl mb-3 bg-cover bg-center" :style="{ backgroundImage: `url(${card.imagen_url})` }"></div>
         <h4 class="font-bold text-sm text-white truncate">{{ card.titulo }}</h4>
         <div class="flex justify-between items-center mt-2 mb-1">
@@ -95,44 +142,73 @@ const toggleFavorito = async (carta) => {
       </div>
     </div>
 
-    <div v-if="cartaSeleccionada" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-300">
-      <div class="bg-slate-900 border border-slate-700 w-full max-w-4xl max-h-[90vh] rounded-3xl overflow-y-auto relative shadow-2xl">
+    <div v-if="cartaSeleccionada" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-200">
+      <div class="bg-slate-900 border border-slate-700 w-full max-w-5xl max-h-[90vh] rounded-3xl overflow-hidden relative shadow-2xl flex flex-col md:flex-row">
         <button @click="cerrarDetalle" class="absolute top-4 right-4 z-50 bg-slate-800 p-2 rounded-full text-white hover:bg-red-500 transition-colors"><X class="w-6 h-6" /></button>
 
-        <div class="grid grid-cols-1 md:grid-cols-2">
-          <div class="p-6 bg-slate-950/50 flex items-center justify-center">
-            <img :src="cartaSeleccionada.imagen_url" class="max-w-full max-h-[60vh] object-contain rounded-2xl border border-slate-800 shadow-2xl">
+        <div class="w-full md:w-1/2 p-6 bg-slate-950/50 flex items-center justify-center">
+          <img :src="cartaSeleccionada.imagen_url" class="max-w-full max-h-[60vh] object-contain rounded-2xl border border-slate-800 shadow-2xl">
+        </div>
+
+        <div class="w-full md:w-1/2 p-6 md:p-8 flex flex-col overflow-y-auto max-h-[90vh] custom-scrollbar">
+          
+          <div class="mb-8">
+            <span class="text-xs font-black text-sky-400 uppercase tracking-widest bg-sky-500/10 px-3 py-1 rounded-full">{{ cartaSeleccionada.juego }}</span>
+            <h3 class="text-3xl font-black text-white mt-4 italic uppercase">{{ cartaSeleccionada.titulo }}</h3>
+            <p class="text-3xl font-black text-green-400 mt-2">${{ formatearPrecio(cartaSeleccionada.precio) }}</p>
+            <p class="text-slate-400 mt-4 leading-relaxed bg-slate-800/50 p-4 rounded-xl border border-slate-800">{{ cartaSeleccionada.descripcion || 'Sin descripción.' }}</p>
+            
+            <div v-if="vendedorSeleccionado" class="mt-6 p-4 bg-slate-800 rounded-2xl border border-slate-700 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-slate-900 rounded-full flex items-center justify-center border border-slate-700"><User class="w-5 h-5 text-sky-400" /></div>
+                <div>
+                  <p class="text-[9px] font-black text-slate-500 uppercase">Propietario</p>
+                  <p class="text-sm font-black text-white">{{ vendedorSeleccionado.username }}</p>
+                </div>
+              </div>
+              <router-link :to="'/u/' + vendedorSeleccionado.username" class="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all">Ver Perfil</router-link>
+            </div>
+            
+            <a :href="'https://wa.me/' + cartaSeleccionada.telefono" target="_blank" class="mt-4 block text-center bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-xl shadow-lg transition-all uppercase tracking-widest">Contactar por WhatsApp</a>
           </div>
 
-          <div class="p-8 flex flex-col justify-between">
-            <div>
-              <span class="text-xs font-black text-sky-400 uppercase tracking-widest bg-sky-500/10 px-3 py-1 rounded-full">{{ cartaSeleccionada.juego }}</span>
-              <h3 class="text-3xl font-black text-white mt-4 italic uppercase">{{ cartaSeleccionada.titulo }}</h3>
-              <p class="text-3xl font-black text-green-400 mt-2">${{ formatearPrecio(cartaSeleccionada.precio) }}</p>
-              <div class="h-px bg-slate-800 my-6"></div>
-              
-              <div v-if="vendedorSeleccionado" class="mt-6 p-4 bg-slate-950/50 rounded-2xl border border-slate-800 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center border border-slate-700">
-                    <User class="w-5 h-5 text-sky-400" />
-                  </div>
-                  <div>
-                    <p class="text-[9px] font-black text-slate-500 uppercase">Propietario</p>
-                    <p class="text-sm font-black text-white">{{ vendedorSeleccionado.username }}</p>
-                  </div>
-                </div>
-                <router-link :to="'/u/' + vendedorSeleccionado.username" class="bg-sky-600/20 hover:bg-sky-600 text-sky-400 hover:text-white px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all">
-                  Ver Perfil
-                </router-link>
-              </div>
-
+          <div class="border-t border-slate-800 pt-6">
+            <h4 class="text-white font-black uppercase text-sm mb-4 flex items-center gap-2"><MessageCircle class="w-5 h-5 text-sky-400"/> Preguntas sobre esta carta</h4>
+            
+            <form v-if="currentUser && currentUser.id !== cartaSeleccionada.user_id" @submit.prevent="enviarPregunta" class="flex gap-2 mb-6">
+              <input v-model="nuevaPregunta" type="text" placeholder="Escribe tu pregunta aquí..." class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-sky-500 outline-none font-bold text-sm placeholder:text-slate-600">
+              <button type="submit" :disabled="enviandoPregunta || !nuevaPregunta" class="bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white px-4 rounded-xl transition-colors"><Send class="w-5 h-5" /></button>
+            </form>
+            <div v-else-if="!currentUser" class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center mb-6">
+              <p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Inicia sesión para preguntar</p>
             </div>
-            <a :href="'https://wa.me/' + cartaSeleccionada.telefono" target="_blank" class="mt-8 block text-center bg-green-600 hover:bg-green-500 text-white font-black py-4 rounded-2xl shadow-lg transition-all uppercase tracking-widest">
-              Contactar para Cambio
-            </a>
+
+            <div class="space-y-4">
+              <div v-if="preguntas.length === 0" class="text-center py-6"><p class="text-slate-500 text-xs font-bold uppercase">Nadie ha preguntado aún.</p></div>
+              <div v-for="preg in preguntas" :key="preg.id" class="bg-slate-900/50 p-4 rounded-xl border border-slate-800 space-y-3">
+                <div>
+                  <div class="flex items-center gap-2 mb-1"><User class="w-3 h-3 text-sky-400" /><span class="text-[10px] font-black uppercase text-sky-400">{{ preg.remitente_nombre }}</span></div>
+                  <p class="text-sm text-slate-300 font-medium">{{ preg.pregunta }}</p>
+                </div>
+                <div v-if="preg.respuesta" class="ml-4 pl-4 border-l-2 border-slate-700">
+                  <div class="flex items-center gap-2 mb-1"><CornerDownRight class="w-3 h-3 text-green-400" /><span class="text-[10px] font-black uppercase text-green-400">Propietario</span></div>
+                  <p class="text-sm text-slate-400 font-medium italic">{{ preg.respuesta }}</p>
+                </div>
+                <div v-else-if="currentUser && currentUser.id === cartaSeleccionada.user_id" class="ml-4 flex gap-2">
+                  <input v-model="respuestasPendientes[preg.id]" type="text" placeholder="Responder..." class="w-full bg-slate-800 border border-slate-700 text-white px-3 py-2 rounded-lg focus:border-green-500 outline-none text-xs font-bold">
+                  <button @click="enviarRespuesta(preg.id)" class="bg-green-600 hover:bg-green-500 text-white px-3 rounded-lg"><Send class="w-4 h-4"/></button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background-color: #334155; border-radius: 10px; }
+</style>
