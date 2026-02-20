@@ -4,14 +4,18 @@ import { supabase } from '../supabase'
 import { showToast } from '../utils/toast'
 import { 
   LayoutDashboard, Layers, Gem, Users, Trash2, Edit, Loader2, X, Save, UserCog, 
-  MessageCircle, Send, CornerDownRight, BellRing, Bookmark, CheckSquare
+  MessageCircle, Send, CornerDownRight, BellRing, Bookmark, CheckSquare, Inbox, Send as SendIcon
 } from 'lucide-vue-next'
 
 const cargando = ref(true)
 const activeTab = ref('mensajes') 
+const subTabMensajes = ref('recibidos') // NUEVO: 'recibidos' | 'enviados'
 const usuarioEmail = ref('')
 
-const misCartas = ref([]); const misArticulos = ref([]); const misGrupos = ref([]); const misMensajes = ref([])
+const misCartas = ref([]); const misArticulos = ref([]); const misGrupos = ref([])
+const misMensajesRecibidos = ref([]) // Preguntas que TE HACEN
+const misMensajesEnviados = ref([]) // Preguntas que TÚ HACES
+
 const modalEdicion = ref(false); const itemEditando = ref(null); const tipoEditando = ref(''); const guardando = ref(false)
 const respuestasPendientes = ref({}) 
 
@@ -22,6 +26,7 @@ const cargarMisPublicaciones = async () => {
     const userId = session.user.id
     usuarioEmail.value = session.user.email
 
+    // Cargar artículos
     const { data: tcg } = await supabase.from('tcg_exchange').select('*').eq('user_id', userId).order('id', { ascending: false })
     if (tcg) misCartas.value = tcg
 
@@ -31,18 +36,29 @@ const cargarMisPublicaciones = async () => {
     const { data: lfg } = await supabase.from('lfg_posts').select('*').eq('user_id', userId).order('created_at', { ascending: false })
     if (lfg) misGrupos.value = lfg
 
-    const { data: msjs } = await supabase.from('preguntas').select('*').eq('vendedor_id', userId).order('created_at', { ascending: false })
-    if (msjs && msjs.length > 0) {
-      const userIds = [...new Set(msjs.map(p => p.remitente_id))]
+    // NUEVO: CARGAR MENSAJES RECIBIDOS (Vendedor)
+    const { data: msjsR } = await supabase.from('preguntas').select('*').eq('vendedor_id', userId).order('created_at', { ascending: false })
+    if (msjsR && msjsR.length > 0) {
+      const userIds = [...new Set(msjsR.map(p => p.remitente_id))]
       const { data: perfiles } = await supabase.from('perfiles').select('id, username').in('id', userIds)
-      const map = {}
-      if(perfiles) perfiles.forEach(p => map[p.id] = p.username)
-      misMensajes.value = msjs.map(p => ({ ...p, remitente_nombre: map[p.remitente_id] || 'Usuario' }))
+      const map = {}; if(perfiles) perfiles.forEach(p => map[p.id] = p.username)
+      misMensajesRecibidos.value = msjsR.map(p => ({ ...p, remitente_nombre: map[p.remitente_id] || 'Usuario' }))
     }
+
+    // NUEVO: CARGAR MENSAJES ENVIADOS (Comprador)
+    const { data: msjsE } = await supabase.from('preguntas').select('*').eq('remitente_id', userId).order('created_at', { ascending: false })
+    if (msjsE && msjsE.length > 0) {
+      const userIds = [...new Set(msjsE.map(p => p.vendedor_id))]
+      const { data: perfiles } = await supabase.from('perfiles').select('id, username').in('id', userIds)
+      const map = {}; if(perfiles) perfiles.forEach(p => map[p.id] = p.username)
+      misMensajesEnviados.value = msjsE.map(p => ({ ...p, vendedor_nombre: map[p.vendedor_id] || 'Vendedor' }))
+    }
+
   } catch (error) { console.error(error) } finally { cargando.value = false }
 }
 
-const preguntasSinResponder = computed(() => misMensajes.value.filter(m => !m.respuesta).length)
+const preguntasSinResponder = computed(() => misMensajesRecibidos.value.filter(m => !m.respuesta).length)
+const respuestasNuevas = computed(() => misMensajesEnviados.value.filter(m => m.respuesta).length) // Mensajes que te respondieron
 
 const enviarRespuesta = async (preguntaId) => {
   const texto = respuestasPendientes.value[preguntaId]
@@ -50,8 +66,8 @@ const enviarRespuesta = async (preguntaId) => {
   try {
     const { error } = await supabase.from('preguntas').update({ respuesta: texto }).eq('id', preguntaId)
     if (error) throw error
-    const index = misMensajes.value.findIndex(m => m.id === preguntaId)
-    if(index !== -1) misMensajes.value[index].respuesta = texto
+    const index = misMensajesRecibidos.value.findIndex(m => m.id === preguntaId)
+    if(index !== -1) misMensajesRecibidos.value[index].respuesta = texto
     respuestasPendientes.value[preguntaId] = ''
     showToast('Respuesta enviada', 'success')
   } catch(e) { showToast(e.message, 'error') }
@@ -72,29 +88,40 @@ const destruirImagenStorage = async (url) => {
 }
 
 const eliminarPublicacion = async (tabla, item, tipo) => {
-  if (!confirm('⚠️ ¿Estás seguro de borrar esto definitivamente? Se borrarán también las fotos.')) return
+  if (!confirm('⚠️ ¿Estás seguro? Se borrarán las fotos y TODO EL CHAT de esta publicación.')) return
   try {
+    // 1. CORRECCIÓN: Borrar primero todas las preguntas asociadas al artículo para que no queden fantasmas
+    await supabase.from('preguntas').delete().eq('item_id', item.id)
+
+    // 2. Borrar el artículo de la base de datos
     const { error } = await supabase.from(tabla).delete().eq('id', item.id)
     if (error) throw error
+
+    // 3. Borrar imágenes de la nube
     if (tipo !== 'lfg') {
       if (item.imagen_url) await destruirImagenStorage(item.imagen_url)
       if (item.imagen_url_2) await destruirImagenStorage(item.imagen_url_2)
       if (item.imagen_url_3) await destruirImagenStorage(item.imagen_url_3)
     }
+
+    // 4. Quitar de la pantalla
     if (tipo === 'tcg') misCartas.value = misCartas.value.filter(i => i.id !== item.id)
     if (tipo === 'vitrina') misArticulos.value = misArticulos.value.filter(i => i.id !== item.id)
     if (tipo === 'lfg') misGrupos.value = misGrupos.value.filter(i => i.id !== item.id)
-    showToast('Publicación eliminada correctamente', 'info')
+    
+    // 5. Quitar mensajes de la bandeja localmente
+    misMensajesRecibidos.value = misMensajesRecibidos.value.filter(m => m.item_id !== item.id)
+
+    showToast('Publicación y mensajes eliminados correctamente', 'info')
   } catch (error) { showToast('Error al eliminar: ' + error.message, 'error') }
 }
 
-// NUEVO: CAMBIAR ESTADO (Vendido / Reservado / Disponible)
 const cambiarEstado = async (tabla, item, nuevoEstado) => {
   try {
     const { error } = await supabase.from(tabla).update({ estado: nuevoEstado }).eq('id', item.id)
     if (error) throw error
     item.estado = nuevoEstado
-    if (nuevoEstado === 'vendido') showToast('¡Felicidades por tu venta! Marcado como Vendido.', 'success')
+    if (nuevoEstado === 'vendido') showToast('¡Vendido! La publicación cambiará de estado.', 'success')
     else if (nuevoEstado === 'reservado') showToast('Artículo apartado correctamente.', 'info')
     else showToast('Artículo disponible nuevamente.', 'success')
   } catch (error) { showToast(error.message, 'error') }
@@ -143,25 +170,66 @@ onMounted(cargarMisPublicaciones)
       
       <div class="flex overflow-x-auto gap-2 p-2 bg-slate-800 border border-slate-700 rounded-2xl snap-x">
         <button @click="activeTab = 'mensajes'" :class="activeTab === 'mensajes' ? 'bg-orange-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'" class="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black uppercase text-xs tracking-widest transition-all snap-center whitespace-nowrap relative"><MessageCircle class="w-4 h-4" /> Mensajes <span v-if="preguntasSinResponder > 0" class="absolute -top-1 -right-1 bg-red-500 text-white w-5 h-5 flex items-center justify-center rounded-full text-[10px] animate-pulse">{{ preguntasSinResponder }}</span></button>
-        <button @click="activeTab = 'tcg'" :class="activeTab === 'tcg' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'" class="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black uppercase text-xs tracking-widest transition-all snap-center whitespace-nowrap"><Layers class="w-4 h-4" /> TCG</button>
-        <button @click="activeTab = 'vitrina'" :class="activeTab === 'vitrina' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'" class="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black uppercase text-xs tracking-widest transition-all snap-center whitespace-nowrap"><Gem class="w-4 h-4" /> Vitrina</button>
-        <button @click="activeTab = 'lfg'" :class="activeTab === 'lfg' ? 'bg-green-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'" class="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black uppercase text-xs tracking-widest transition-all snap-center whitespace-nowrap"><Users class="w-4 h-4" /> Grupos</button>
+        <button @click="activeTab = 'tcg'" :class="activeTab === 'tcg' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'" class="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black uppercase text-xs tracking-widest transition-all snap-center whitespace-nowrap"><Layers class="w-4 h-4" /> Mis Cartas</button>
+        <button @click="activeTab = 'vitrina'" :class="activeTab === 'vitrina' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'" class="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black uppercase text-xs tracking-widest transition-all snap-center whitespace-nowrap"><Gem class="w-4 h-4" /> Mi Vitrina</button>
       </div>
 
       <div v-show="activeTab === 'mensajes'" class="animate-in slide-in-from-left-4 duration-300">
-        <div v-if="misMensajes.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700"><BellRing class="w-12 h-12 mx-auto text-slate-600 mb-4" /><p class="text-slate-500 font-bold uppercase tracking-widest">Tu bandeja está vacía</p></div>
-        <div v-else class="space-y-4">
-          <div v-for="msj in misMensajes" :key="msj.id" class="bg-slate-800 p-5 rounded-2xl border transition-all" :class="msj.respuesta ? 'border-slate-700 opacity-75' : 'border-orange-500 shadow-lg shadow-orange-900/20'">
-            <div class="flex justify-between items-start mb-3"><span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="msj.tipo_item === 'tcg' ? 'bg-sky-500/20 text-sky-400' : 'bg-purple-500/20 text-purple-400'">En {{ msj.tipo_item }}</span><span v-if="!msj.respuesta" class="text-[10px] bg-red-500 text-white px-2 py-1 rounded font-bold uppercase">Sin Responder</span><span v-else class="text-[10px] bg-green-500 text-white px-2 py-1 rounded font-bold uppercase">Respondido</span></div>
-            <div class="flex items-center gap-2 mb-2"><User class="w-4 h-4 text-orange-400" /><span class="text-xs font-black uppercase text-orange-400">{{ msj.remitente_nombre }} pregunta:</span></div>
-            <p class="text-white text-sm mb-4 bg-slate-900 p-3 rounded-xl border border-slate-700">"{{ msj.pregunta }}"</p>
-            <div v-if="msj.respuesta" class="ml-4 pl-4 border-l-2 border-slate-700"><div class="flex items-center gap-2 mb-1"><CornerDownRight class="w-3 h-3 text-slate-500" /><span class="text-[10px] font-black uppercase text-slate-500">Tu respuesta</span></div><p class="text-sm text-slate-400 font-medium italic">{{ msj.respuesta }}</p></div>
-            <div v-else class="ml-4 flex gap-2">
-              <input v-model="respuestasPendientes[msj.id]" type="text" placeholder="Escribe tu respuesta pública aquí..." class="w-full bg-slate-900 border border-orange-500/50 text-white px-4 py-3 rounded-xl focus:border-orange-500 outline-none text-xs font-bold">
-              <button @click="enviarRespuesta(msj.id)" class="bg-orange-600 hover:bg-orange-500 text-white px-4 rounded-xl flex items-center gap-2 text-xs font-black uppercase"><Send class="w-4 h-4"/> Responder</button>
+        
+        <div class="flex gap-4 mb-6 border-b border-slate-700 pb-2">
+          <button @click="subTabMensajes = 'recibidos'" :class="subTabMensajes === 'recibidos' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-slate-400 hover:text-white'" class="pb-3 px-4 font-black uppercase text-xs tracking-widest transition-all flex gap-2 items-center">
+            <Inbox class="w-4 h-4" /> Buzón de Ventas
+            <span v-if="preguntasSinResponder > 0" class="bg-red-500 text-white px-2 py-0.5 rounded-full text-[10px]">{{ preguntasSinResponder }}</span>
+          </button>
+          <button @click="subTabMensajes = 'enviados'" :class="subTabMensajes === 'enviados' ? 'text-sky-400 border-b-2 border-sky-400' : 'text-slate-400 hover:text-white'" class="pb-3 px-4 font-black uppercase text-xs tracking-widest transition-all flex gap-2 items-center">
+            <SendIcon class="w-4 h-4" /> Mis Consultas
+          </button>
+        </div>
+
+        <div v-if="subTabMensajes === 'recibidos'">
+          <div v-if="misMensajesRecibidos.length === 0" class="text-center py-10"><p class="text-slate-500 font-bold uppercase tracking-widest">Nadie ha preguntado en tus artículos</p></div>
+          <div v-else class="space-y-4">
+            <div v-for="msj in misMensajesRecibidos" :key="msj.id" class="bg-slate-800 p-5 rounded-2xl border transition-all" :class="msj.respuesta ? 'border-slate-700 opacity-75' : 'border-orange-500 shadow-lg shadow-orange-900/20'">
+              <div class="flex justify-between items-start mb-3"><span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="msj.tipo_item === 'tcg' ? 'bg-sky-500/20 text-sky-400' : 'bg-purple-500/20 text-purple-400'">En {{ msj.tipo_item }}</span><span v-if="!msj.respuesta" class="text-[10px] bg-red-500 text-white px-2 py-1 rounded font-bold uppercase">Sin Responder</span><span v-else class="text-[10px] bg-green-500 text-white px-2 py-1 rounded font-bold uppercase">Respondido</span></div>
+              <div class="flex items-center gap-2 mb-2"><User class="w-4 h-4 text-orange-400" /><span class="text-xs font-black uppercase text-orange-400">{{ msj.remitente_nombre }} pregunta:</span></div>
+              <p class="text-white text-sm mb-4 bg-slate-900 p-3 rounded-xl border border-slate-700">"{{ msj.pregunta }}"</p>
+              
+              <div v-if="msj.respuesta" class="ml-4 pl-4 border-l-2 border-slate-700">
+                <div class="flex items-center gap-2 mb-1"><CornerDownRight class="w-3 h-3 text-slate-500" /><span class="text-[10px] font-black uppercase text-slate-500">Tu respuesta</span></div>
+                <p class="text-sm text-slate-400 font-medium italic">{{ msj.respuesta }}</p>
+              </div>
+              <div v-else class="ml-4 flex gap-2">
+                <input v-model="respuestasPendientes[msj.id]" type="text" placeholder="Escribe tu respuesta aquí..." class="w-full bg-slate-900 border border-orange-500/50 text-white px-4 py-3 rounded-xl focus:border-orange-500 outline-none text-xs font-bold">
+                <button @click="enviarRespuesta(msj.id)" class="bg-orange-600 hover:bg-orange-500 text-white px-4 rounded-xl flex items-center gap-2 text-xs font-black uppercase"><Send class="w-4 h-4"/> Responder</button>
+              </div>
             </div>
           </div>
         </div>
+
+        <div v-if="subTabMensajes === 'enviados'">
+          <div v-if="misMensajesEnviados.length === 0" class="text-center py-10"><p class="text-slate-500 font-bold uppercase tracking-widest">No has hecho preguntas a nadie</p></div>
+          <div v-else class="space-y-4">
+            <div v-for="msj in misMensajesEnviados" :key="'e'+msj.id" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 transition-all shadow-lg">
+              <div class="flex justify-between items-start mb-3">
+                <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="msj.tipo_item === 'tcg' ? 'bg-sky-500/20 text-sky-400' : 'bg-purple-500/20 text-purple-400'">Consultaste en {{ msj.tipo_item }}</span>
+                <span v-if="!msj.respuesta" class="text-[10px] border border-slate-500 text-slate-400 px-2 py-1 rounded font-bold uppercase">En Espera</span>
+                <span v-else class="text-[10px] bg-green-500 text-white px-2 py-1 rounded font-bold uppercase">Respondido</span>
+              </div>
+              <div class="flex items-center gap-2 mb-2"><User class="w-4 h-4 text-sky-400" /><span class="text-xs font-black uppercase text-sky-400">Le preguntaste a {{ msj.vendedor_nombre }}:</span></div>
+              <p class="text-white text-sm mb-4 bg-slate-900 p-3 rounded-xl border border-slate-700 opacity-80">"{{ msj.pregunta }}"</p>
+              
+              <div class="ml-4 pl-4 border-l-2" :class="msj.respuesta ? 'border-green-500' : 'border-slate-700'">
+                <div class="flex items-center gap-2 mb-1">
+                  <CornerDownRight class="w-3 h-3" :class="msj.respuesta ? 'text-green-400' : 'text-slate-500'" />
+                  <span class="text-[10px] font-black uppercase" :class="msj.respuesta ? 'text-green-400' : 'text-slate-500'">{{ msj.respuesta ? 'Respuesta del Vendedor' : 'Estado' }}</span>
+                </div>
+                <p v-if="msj.respuesta" class="text-sm text-white font-medium italic">{{ msj.respuesta }}</p>
+                <p v-else class="text-xs text-slate-500 font-bold italic animate-pulse">Esperando a que el vendedor responda...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <div v-show="activeTab === 'tcg'" class="animate-in slide-in-from-left-4 duration-300">
@@ -183,7 +251,7 @@ onMounted(cargarMisPublicaciones)
             </div>
 
             <div class="mt-4 grid grid-cols-2 gap-2">
-              <button v-if="item.estado === 'disponible'" @click="cambiarEstado('tcg_exchange', item, 'reservado')" class="bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-yellow-500/20"><Bookmark class="w-3 h-3" /> Apartar</button>
+              <button v-if="item.estado === 'disponible' || !item.estado" @click="cambiarEstado('tcg_exchange', item, 'reservado')" class="bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-yellow-500/20"><Bookmark class="w-3 h-3" /> Apartar</button>
               <button v-if="item.estado === 'reservado'" @click="cambiarEstado('tcg_exchange', item, 'disponible')" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1">Quitar Reserva</button>
               
               <button v-if="item.estado !== 'vendido'" @click="cambiarEstado('tcg_exchange', item, 'vendido')" class="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-green-500/20"><CheckSquare class="w-3 h-3" /> Marcar Vendido</button>
@@ -215,7 +283,7 @@ onMounted(cargarMisPublicaciones)
             </div>
 
             <div class="mt-4 grid grid-cols-2 gap-2">
-              <button v-if="item.estado === 'disponible'" @click="cambiarEstado('colecciones', item, 'reservado')" class="bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-yellow-500/20"><Bookmark class="w-3 h-3" /> Apartar</button>
+              <button v-if="item.estado === 'disponible' || !item.estado" @click="cambiarEstado('colecciones', item, 'reservado')" class="bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-slate-900 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-yellow-500/20"><Bookmark class="w-3 h-3" /> Apartar</button>
               <button v-if="item.estado === 'reservado'" @click="cambiarEstado('colecciones', item, 'disponible')" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1">Quitar Reserva</button>
               
               <button v-if="item.estado !== 'vendido'" @click="cambiarEstado('colecciones', item, 'vendido')" class="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-1 border border-green-500/20"><CheckSquare class="w-3 h-3" /> Marcar Vendido</button>
@@ -227,20 +295,6 @@ onMounted(cargarMisPublicaciones)
           </div>
         </div>
       </div>
-
-      <div v-show="activeTab === 'lfg'" class="animate-in slide-in-from-left-4 duration-300">
-        <div v-if="misGrupos.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700"><p class="text-slate-500 font-bold uppercase tracking-widest">No hay búsquedas</p></div>
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div v-for="item in misGrupos" :key="item.id" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between">
-            <div><span class="text-[9px] bg-green-900/30 text-green-400 px-2 py-1 rounded uppercase font-bold">{{ item.juego }}</span><h3 class="font-bold text-white mt-2 text-lg">{{ item.titulo }}</h3></div>
-            <div class="mt-4 grid grid-cols-2 gap-2">
-              <button @click="abrirEdicion(item, 'lfg')" class="bg-green-500/10 hover:bg-green-500 text-green-400 hover:text-white py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase transition-all border border-green-500/20">Editar</button>
-              <button @click="eliminarPublicacion('lfg_posts', item, 'lfg')" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase transition-all border border-red-500/20">Borrar</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
 
     <div v-if="modalEdicion && itemEditando" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm">
