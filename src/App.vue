@@ -38,24 +38,36 @@ const cerrarSesion = async () => {
 <template>
   <div class="min-h-screen bg-slate-900 text-slate-100 font-sans">
     
-    <nav class="sticky top-0 z-50 p-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800">
+    <nav class="sticky top-0 z-50 p-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 shadow-lg shadow-sky-900/10">
       <div class="max-w-6xl mx-auto flex justify-between items-center">
         
-        <router-link to="/" class="flex items-center gap-2 text-2xl font-black italic text-sky-400 hover:text-sky-300 transition-colors">
-          <Hexagon class="w-8 h-8 text-sky-500" />
-          HEX6
+        <router-link to="/" class="flex items-center gap-3 group relative pl-2">
+          <div class="relative flex items-center justify-center">
+            <div class="absolute inset-0 bg-sky-500 blur-md opacity-20 group-hover:opacity-60 transition-opacity duration-500 rounded-full"></div>
+            <Hexagon class="w-9 h-9 text-sky-400 relative z-10" stroke-width="2.5" />
+            <div class="absolute w-2 h-2 bg-purple-400 rounded-full z-20 shadow-[0_0_10px_#c084fc] group-hover:animate-ping"></div>
+          </div>
+          
+          <div class="flex flex-col justify-center -space-y-1 mt-1">
+            <span class="text-2xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-300">
+              HEX<span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-purple-500">6</span>
+            </span>
+            <span class="text-[8px] font-black uppercase tracking-[0.4em] text-slate-500 group-hover:text-sky-400 transition-colors ml-0.5">
+              Rancagua
+            </span>
+          </div>
         </router-link>
 
         <div class="flex items-center gap-4 md:gap-8">
           
           <div class="hidden md:flex gap-6 mr-4 border-r border-slate-800 pr-6">
-            <router-link to="/tcg" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-sky-400">
+            <router-link to="/tcg" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]">
               <Layers class="w-3 h-3" /> TCG
             </router-link>
-            <router-link to="/vitrina" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-purple-400">
+            <router-link to="/vitrina" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-purple-400 drop-shadow-[0_0_8px_rgba(192,132,252,0.5)]">
               <Gem class="w-3 h-3" /> Vitrina
             </router-link>
-            <router-link to="/grupos" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-green-400">
+            <router-link to="/grupos" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.5)]">
               <Users class="w-3 h-3" /> Grupos
             </router-link>
           </div>
@@ -78,9 +90,10 @@ const cerrarSesion = async () => {
             </button>
           </div>
 
-          <router-link v-else to="/login" class="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all uppercase tracking-widest shadow-lg shadow-sky-900/20">
-            <User class="w-4 h-4" />
-            Entrar
+          <router-link v-else to="/login" class="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all uppercase tracking-widest shadow-lg shadow-sky-900/20 relative overflow-hidden group">
+            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
+            <User class="w-4 h-4 relative z-10" />
+            <span class="relative z-10">Entrar</span>
           </router-link>
         </div>
       </div>
@@ -112,6 +125,11 @@ const cerrarSesion = async () => {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-10px);
+}
+
+/* Animación de brillo para el botón Entrar */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
 }
 
 /* Scrollbar personalizada estilo Geek */
