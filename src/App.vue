@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { 
-  Hexagon, LogOut, User, Layers, Gem, Users, LayoutDashboard, ShieldCheck, Heart 
+  Hexagon, LogOut, User, Layers, Gem, Users, LayoutDashboard, ShieldCheck, Heart, 
+  CheckCircle, AlertCircle, Info 
 } from 'lucide-vue-next'
 import { supabase } from './supabase'
 import { useRouter } from 'vue-router'
+import { toasts } from './utils/toast' // IMPORTAMOS EL SISTEMA DE ALERTAS
 
 const router = useRouter()
 const usuario = ref(null)
@@ -26,7 +28,7 @@ const cerrarSesion = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col">
+  <div class="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col relative">
     <nav class="sticky top-0 z-50 p-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 shadow-lg">
       <div class="max-w-6xl mx-auto flex justify-between items-center gap-2">
         
@@ -80,11 +82,35 @@ const cerrarSesion = async () => {
         </transition>
       </router-view>
     </main>
+
+    <div class="fixed bottom-6 right-6 z-[999] flex flex-col gap-3 pointer-events-none">
+      <transition-group name="toast">
+        <div 
+          v-for="toast in toasts" 
+          :key="toast.id" 
+          class="pointer-events-auto flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md font-bold text-sm min-w-[280px]"
+          :class="{
+            'bg-green-500/10 border-green-500/30 text-green-400': toast.tipo === 'success',
+            'bg-red-500/10 border-red-500/30 text-red-400': toast.tipo === 'error',
+            'bg-sky-500/10 border-sky-500/30 text-sky-400': toast.tipo === 'info'
+          }"
+        >
+          <CheckCircle v-if="toast.tipo === 'success'" class="w-5 h-5" />
+          <AlertCircle v-if="toast.tipo === 'error'" class="w-5 h-5" />
+          <Info v-if="toast.tipo === 'info'" class="w-5 h-5" />
+          {{ toast.mensaje }}
+        </div>
+      </transition-group>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* Solo dejamos las animaciones de Vue, que no usan Tailwind */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* Animación para los Toasts */
+.toast-enter-active, .toast-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.toast-enter-from { opacity: 0; transform: translateX(50px) scale(0.9); }
+.toast-leave-to { opacity: 0; transform: translateX(50px) scale(0.9); }
 </style>

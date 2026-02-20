@@ -1,0 +1,13 @@
+import { ref } from 'vue'
+
+export const toasts = ref([])
+
+export const showToast = (mensaje, tipo = 'success') => {
+  const id = Date.now()
+  toasts.value.push({ id, mensaje, tipo })
+  
+  // Elimina la alerta automáticamente después de 4 segundos
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id)
+  }, 4000)
+}

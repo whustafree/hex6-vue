@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase } from '../supabase'
+import { showToast } from '../utils/toast' // <--- IMPORTACIÓN DEL SISTEMA DE ALERTAS
 import { 
   User, Phone, MapPin, Save, Loader2, CheckCircle, 
   MessageSquare, Instagram, Link, Eye, EyeOff, ExternalLink 
@@ -20,8 +21,11 @@ const getProfile = async () => {
     if (!session) return
     const { data } = await supabase.from('perfiles').select('*').eq('id', session.user.id).single()
     if (data) perfil.value = { ...perfil.value, ...data }
-  } catch (error) { console.error(error) } 
-  finally { loading.value = false }
+  } catch (error) { 
+    console.error(error) 
+  } finally { 
+    loading.value = false 
+  }
 }
 
 const updateProfile = async () => {
@@ -30,10 +34,18 @@ const updateProfile = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     const { error } = await supabase.from('perfiles').upsert({ id: session.user.id, ...perfil.value, updated_at: new Date() })
     if (error) throw error
-    success.value = true; setTimeout(() => { success.value = false }, 3000)
-  } catch (error) { alert(error.message) } 
-  finally { saving.value = false }
+    
+    success.value = true
+    showToast('¡Configuración guardada con éxito!', 'success') // <--- ALERTA MODERNA DE ÉXITO
+    setTimeout(() => { success.value = false }, 3000)
+    
+  } catch (error) { 
+    showToast('Error al guardar: ' + error.message, 'error') // <--- ALERTA MODERNA DE ERROR
+  } finally { 
+    saving.value = false 
+  }
 }
+
 onMounted(getProfile)
 </script>
 
@@ -54,20 +66,31 @@ onMounted(getProfile)
     <div v-if="loading" class="text-center py-12"><Loader2 class="w-10 h-10 animate-spin mx-auto text-sky-500" /></div>
 
     <form v-else @submit.prevent="updateProfile" class="space-y-6">
+      
       <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 space-y-6">
-        <h3 class="text-white font-black uppercase text-sm flex items-center gap-2 border-b border-slate-700 pb-3"><User class="w-4 h-4 text-sky-400" /> Datos Principales</h3>
+        <h3 class="text-white font-black uppercase text-sm flex items-center gap-2 border-b border-slate-700 pb-3">
+          <User class="w-4 h-4 text-sky-400" /> Datos Principales
+        </h3>
+        
         <div class="space-y-2">
           <label class="text-[10px] font-black uppercase text-slate-500">Nombre de Usuario (Público)</label>
           <input v-model="perfil.username" type="text" placeholder="Ej: Gustavo_Geek" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700">
         </div>
+        
         <div class="space-y-2">
           <label class="text-[10px] font-black uppercase text-slate-500">Ciudad</label>
-          <select v-model="perfil.ciudad" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold appearance-none"><option>Rancagua</option><option>Machalí</option><option>Graneros</option><option>Doñihue</option></select>
+          <select v-model="perfil.ciudad" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold appearance-none">
+            <option>Rancagua</option><option>Machalí</option><option>Graneros</option><option>Doñihue</option>
+          </select>
         </div>
+        
         <div class="space-y-2">
           <div class="flex justify-between items-center mb-1">
             <label class="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1"><Phone class="w-3 h-3" /> WhatsApp</label>
-            <button type="button" @click="perfil.mostrar_whatsapp = !perfil.mostrar_whatsapp" class="text-[10px] font-bold uppercase flex items-center gap-1 transition-colors" :class="perfil.mostrar_whatsapp ? 'text-green-400' : 'text-slate-500'"><component :is="perfil.mostrar_whatsapp ? Eye : EyeOff" class="w-3 h-3" />{{ perfil.mostrar_whatsapp ? 'Público' : 'Oculto' }}</button>
+            <button type="button" @click="perfil.mostrar_whatsapp = !perfil.mostrar_whatsapp" class="text-[10px] font-bold uppercase flex items-center gap-1 transition-colors" :class="perfil.mostrar_whatsapp ? 'text-green-400' : 'text-slate-500'">
+              <component :is="perfil.mostrar_whatsapp ? Eye : EyeOff" class="w-3 h-3" />
+              {{ perfil.mostrar_whatsapp ? 'Público' : 'Oculto' }}
+            </button>
           </div>
           <input v-model="perfil.whatsapp" type="text" placeholder="56912345678" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700">
         </div>
@@ -75,9 +98,15 @@ onMounted(getProfile)
 
       <div class="bg-slate-800 p-6 rounded-3xl border border-slate-700 space-y-6">
         <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-          <h3 class="text-white font-black uppercase text-sm flex items-center gap-2"><Link class="w-4 h-4 text-pink-400" /> Redes y Grupos</h3>
-          <button type="button" @click="perfil.mostrar_redes = !perfil.mostrar_redes" class="text-[10px] font-bold uppercase flex items-center gap-1 transition-colors" :class="perfil.mostrar_redes ? 'text-green-400' : 'text-slate-500'"><component :is="perfil.mostrar_redes ? Eye : EyeOff" class="w-3 h-3" />{{ perfil.mostrar_redes ? 'Público' : 'Oculto' }}</button>
+          <h3 class="text-white font-black uppercase text-sm flex items-center gap-2">
+            <Link class="w-4 h-4 text-pink-400" /> Redes y Grupos
+          </h3>
+          <button type="button" @click="perfil.mostrar_redes = !perfil.mostrar_redes" class="text-[10px] font-bold uppercase flex items-center gap-1 transition-colors" :class="perfil.mostrar_redes ? 'text-green-400' : 'text-slate-500'">
+            <component :is="perfil.mostrar_redes ? Eye : EyeOff" class="w-3 h-3" />
+            {{ perfil.mostrar_redes ? 'Público' : 'Oculto' }}
+          </button>
         </div>
+        
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="space-y-2">
             <label class="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1"><MessageSquare class="w-3 h-3 text-indigo-400"/> Usuario Discord</label>
@@ -88,6 +117,7 @@ onMounted(getProfile)
             <input v-model="perfil.instagram" type="text" placeholder="@tu_cuenta" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700">
           </div>
         </div>
+        
         <div class="space-y-2">
           <label class="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1"><Link class="w-3 h-3 text-sky-400"/> Link Comunidad (Discord/WhatsApp)</label>
           <input v-model="perfil.link_grupo" type="url" placeholder="https://discord.gg/..." class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 transition-all font-bold placeholder:text-slate-700">
