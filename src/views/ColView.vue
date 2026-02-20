@@ -1,14 +1,15 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { supabase } from '../supabase'
-import { Search, Gem, Loader2, Filter } from 'lucide-vue-next'
+import { Search, Gem, Loader2, Filter, ArrowUpDown } from 'lucide-vue-next'
 
 const colItems = ref([])
 const cargando = ref(true)
 const busqueda = ref('') 
 const categoriaFiltro = ref('Todas')
+const orden = ref('recientes') // NUEVO: Variable para el orden de precio
 
-// MEJORA 1: Función para formatear el dinero
+// Función para formatear el dinero
 const formatearPrecio = (precio) => {
   return new Intl.NumberFormat('es-CL').format(precio)
 }
@@ -28,13 +29,26 @@ onMounted(async () => {
   }
 })
 
+// Computado inteligente: Filtra y luego Ordena
 const itemsFiltrados = computed(() => {
-  return colItems.value.filter(item => {
+  // 1. Filtrar por texto y categoría
+  let resultado = colItems.value.filter(item => {
     const coincideTexto = item.item_nombre.toLowerCase().includes(busqueda.value.toLowerCase())
     const coincideCategoria = categoriaFiltro.value === 'Todas' || item.categoria === categoriaFiltro.value
-    
     return coincideTexto && coincideCategoria
   })
+
+  // 2. Ordenar matemáticamente según la opción elegida
+  if (orden.value === 'menor') {
+    resultado.sort((a, b) => a.precio - b.precio)
+  } else if (orden.value === 'mayor') {
+    resultado.sort((a, b) => b.precio - a.precio)
+  } else {
+    // 'recientes' (orden original por ID de Supabase)
+    resultado.sort((a, b) => b.id - a.id)
+  }
+
+  return resultado
 })
 </script>
 
@@ -47,6 +61,7 @@ const itemsFiltrados = computed(() => {
       </h2>
       
       <div class="flex flex-col md:flex-row gap-4">
+        
         <div class="relative flex-1">
           <Search class="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
           <input 
@@ -57,19 +72,32 @@ const itemsFiltrados = computed(() => {
           >
         </div>
         
-        <div class="relative w-full md:w-64">
+        <div class="relative w-full md:w-48 shrink-0">
           <Filter class="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
           <select 
             v-model="categoriaFiltro"
-            class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 appearance-none cursor-pointer"
+            class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 appearance-none cursor-pointer font-bold"
           >
-            <option value="Todas">Todas las categorías</option>
+            <option value="Todas">Todas</option>
             <option value="Figuras">Figuras</option>
             <option value="Consolas">Consolas</option>
             <option value="Retro">Retro</option>
             <option value="Manga">Manga</option>
           </select>
         </div>
+
+        <div class="relative w-full md:w-56 shrink-0">
+          <ArrowUpDown class="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
+          <select 
+            v-model="orden"
+            class="w-full bg-slate-900 border border-slate-700 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-purple-500 appearance-none cursor-pointer font-bold"
+          >
+            <option value="recientes">Más Recientes</option>
+            <option value="menor">Menor Precio</option>
+            <option value="mayor">Mayor Precio</option>
+          </select>
+        </div>
+
       </div>
     </div>
 
