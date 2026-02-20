@@ -1,164 +1,272 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase } from '../supabase'
-import { useRouter } from 'vue-router'
 import { 
-  PlusCircle, ShoppingCart, UserPlus, UserCog, 
-  LayoutDashboard, Clock, Trash2, Edit 
+  LayoutDashboard, Layers, Gem, Users, Trash2, Edit, Loader2, PlusCircle, X, Save 
 } from 'lucide-vue-next'
 
-const router = useRouter()
-const usuario = ref(null)
 const cargando = ref(true)
-const misPublicaciones = ref([])
+const activeTab = ref('tcg')
 
-// Formato de precio
-const formatearPrecio = (precio) => {
-  return new Intl.NumberFormat('es-CL').format(precio)
-}
+const misCartas = ref([])
+const misArticulos = ref([])
+const misGrupos = ref([])
 
-const cargarMisPublicaciones = async (userId) => {
+// Variables para el Modal de Edición
+const modalEdicion = ref(false)
+const itemEditando = ref(null)
+const tipoEditando = ref('')
+const guardando = ref(false)
+
+const cargarMisPublicaciones = async () => {
   try {
-    // AHORA TAMBIÉN BUSCAMOS EL PRECIO Y LA DESCRIPCIÓN
-    const [tcg, col, lfg] = await Promise.all([
-      supabase.from('tcg_exchange').select('id, titulo, precio, created_at').eq('user_id', userId),
-      supabase.from('colecciones').select('id, item_nombre, precio, created_at').eq('user_id', userId),
-      supabase.from('lfg_posts').select('id, juego_nombre, descripcion, created_at').eq('user_id', userId)
-    ])
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const userId = session.user.id
 
-    const combinada = [
-      ...(tcg.data || []).map(i => ({ ...i, tipo: 'TCG', nombre: i.titulo, tabla: 'tcg_exchange', datoDinamico: i.precio })),
-      ...(col.data || []).map(i => ({ ...i, tipo: 'Vitrina', nombre: i.item_nombre, tabla: 'colecciones', datoDinamico: i.precio })),
-      ...(lfg.data || []).map(i => ({ ...i, tipo: 'LFG', nombre: i.juego_nombre, tabla: 'lfg_posts', datoDinamico: i.descripcion }))
-    ]
+    const { data: tcg } = await supabase.from('tcg_exchange').select('*').eq('user_id', userId).order('id', { ascending: false })
+    if (tcg) misCartas.value = tcg
 
-    misPublicaciones.value = combinada.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    const { data: vitrina } = await supabase.from('colecciones').select('*').eq('user_id', userId).order('id', { ascending: false })
+    if (vitrina) misArticulos.value = vitrina
+
+    const { data: lfg } = await supabase.from('lfg_posts').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+    if (lfg) misGrupos.value = lfg
+
+  } catch (error) { console.error(error) } 
+  finally { cargando.value = false }
+}
+
+const formatearPrecio = (precio) => new Intl.NumberFormat('es-CL').format(precio)
+
+// NUEVO: Función para destruir la imagen físicamente del Storage
+const destruirImagenStorage = async (url) => {
+  if (!url) return
+  try {
+    // La URL pública es larga, necesitamos extraer solo la parte final: "user_id/nombre_archivo.jpg"
+    const rutaBase = 'public/items/'
+    const index = url.indexOf(rutaBase)
+    if (index !== -1) {
+      const rutaArchivo = url.substring(index + rutaBase.length)
+      await supabase.storage.from('items').remove([rutaArchivo])
+    }
   } catch (error) {
-    console.error("Error cargando publicaciones:", error)
+    console.error('Error limpiando imagen:', error)
   }
 }
 
-const eliminarPublicacion = async (id, tabla) => {
-  if (!confirm('¿Estás seguro de que quieres eliminar esta publicación?')) return
-
-  const { error } = await supabase.from(tabla).delete().eq('id', id)
+// ACTUALIZADO: Ahora recibe el "item" completo para poder leer sus fotos
+const eliminarPublicacion = async (tabla, item, tipo) => {
+  if (!confirm('⚠️ ¿Estás seguro de eliminar esta publicación? Se borrarán también las fotos del servidor.')) return
   
-  if (error) alert("Error al eliminar: " + error.message)
-  else {
-    misPublicaciones.value = misPublicaciones.value.filter(p => p.id !== id)
-  }
+  try {
+    // 1. Borrar de la base de datos (Texto)
+    const { error } = await supabase.from(tabla).delete().eq('id', item.id)
+    if (error) throw error
+
+    // 2. Borrar las imágenes del Storage para ahorrar espacio (Solo TCG y Vitrina)
+    if (tipo !== 'lfg') {
+      if (item.imagen_url) await destruirImagenStorage(item.imagen_url)
+      if (item.imagen_url_2) await destruirImagenStorage(item.imagen_url_2)
+      if (item.imagen_url_3) await destruirImagenStorage(item.imagen_url_3)
+    }
+
+    // 3. Quitar de la pantalla
+    if (tipo === 'tcg') misCartas.value = misCartas.value.filter(i => i.id !== item.id)
+    if (tipo === 'vitrina') misArticulos.value = misArticulos.value.filter(i => i.id !== item.id)
+    if (tipo === 'lfg') misGrupos.value = misGrupos.value.filter(i => i.id !== item.id)
+
+  } catch (error) { alert('Error al eliminar: ' + error.message) }
 }
 
-// NUEVA FUNCIÓN: Editar publicación
-const editarPublicacion = async (pub) => {
-  if (pub.tipo === 'LFG') {
-    // Si es un grupo, le pedimos la nueva descripción
-    const nuevaDesc = prompt(`Actualiza la descripción para "${pub.nombre}":`, pub.datoDinamico)
-    if (nuevaDesc && nuevaDesc !== pub.datoDinamico) {
-      const { error } = await supabase.from(pub.tabla).update({ descripcion: nuevaDesc }).eq('id', pub.id)
-      if (error) alert("Error: " + error.message)
-      else pub.datoDinamico = nuevaDesc // Actualizamos la pantalla al instante
-    }
-  } else {
-    // Si es TCG o Vitrina, le pedimos el nuevo precio (solo números)
-    const nuevoPrecio = prompt(`Ingresa el nuevo precio para "${pub.nombre}":\n(Solo números, sin puntos ni signos $)`, pub.datoDinamico)
-    if (nuevoPrecio && !isNaN(nuevoPrecio) && parseInt(nuevoPrecio) !== pub.datoDinamico) {
-      const precioNumerico = parseInt(nuevoPrecio)
-      const { error } = await supabase.from(pub.tabla).update({ precio: precioNumerico }).eq('id', pub.id)
-      if (error) alert("Error: " + error.message)
-      else pub.datoDinamico = precioNumerico // Actualizamos la pantalla al instante
-    }
-  }
+const abrirEdicion = (item, tipo) => {
+  itemEditando.value = { ...item }
+  tipoEditando.value = tipo
+  modalEdicion.value = true
 }
 
-onMounted(async () => {
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  if (!session) {
-    router.push('/login')
-  } else {
-    usuario.value = session.user
-    await cargarMisPublicaciones(session.user.id)
-  }
-  cargando.value = false
-})
+const cerrarEdicion = () => {
+  modalEdicion.value = false
+  itemEditando.value = null
+  tipoEditando.value = ''
+}
+
+const guardarEdicion = async () => {
+  guardando.value = true
+  try {
+    let tabla = ''
+    let datosActualizados = {}
+
+    if (tipoEditando.value === 'tcg') {
+      tabla = 'tcg_exchange'
+      datosActualizados = { titulo: itemEditando.value.titulo, precio: itemEditando.value.precio, descripcion: itemEditando.value.descripcion, telefono: itemEditando.value.telefono }
+    } else if (tipoEditando.value === 'vitrina') {
+      tabla = 'colecciones'
+      datosActualizados = { item_nombre: itemEditando.value.item_nombre, precio: itemEditando.value.precio, descripcion: itemEditando.value.descripcion, telefono: itemEditando.value.telefono }
+    } else if (tipoEditando.value === 'lfg') {
+      tabla = 'lfg_posts'
+      datosActualizados = { titulo: itemEditando.value.titulo, descripcion: itemEditando.value.descripcion, telefono: itemEditando.value.telefono }
+    }
+
+    const { error } = await supabase.from(tabla).update(datosActualizados).eq('id', itemEditando.value.id)
+    if (error) throw error
+
+    if (tipoEditando.value === 'tcg') {
+      const index = misCartas.value.findIndex(i => i.id === itemEditando.value.id)
+      misCartas.value[index] = { ...misCartas.value[index], ...datosActualizados }
+    } else if (tipoEditando.value === 'vitrina') {
+      const index = misArticulos.value.findIndex(i => i.id === itemEditando.value.id)
+      misArticulos.value[index] = { ...misArticulos.value[index], ...datosActualizados }
+    } else if (tipoEditando.value === 'lfg') {
+      const index = misGrupos.value.findIndex(i => i.id === itemEditando.value.id)
+      misGrupos.value[index] = { ...misGrupos.value[index], ...datosActualizados }
+    }
+
+    cerrarEdicion()
+  } catch (error) { alert('Error al guardar: ' + error.message) } 
+  finally { guardando.value = false }
+}
+
+onMounted(cargarMisPublicaciones)
 </script>
 
 <template>
-  <div v-if="usuario" class="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in zoom-in duration-500">
+  <div class="space-y-8 pb-20 animate-in fade-in duration-500 max-w-5xl mx-auto p-4">
     
-    <div class="bg-slate-800/40 p-8 rounded-3xl border border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6">
-      <div class="text-center md:text-left">
-        <h2 class="text-3xl font-black italic text-sky-400 flex items-center justify-center md:justify-start gap-3 uppercase">
-          <LayoutDashboard class="w-8 h-8" /> Central HEX6
-        </h2>
-        <p class="text-slate-400 text-sm mt-1 font-bold uppercase tracking-widest">
-          Sesión: <span class="text-white">{{ usuario.email }}</span>
-        </p>
+    <div class="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-4">
+        <div class="w-16 h-16 bg-sky-500/20 rounded-2xl flex items-center justify-center border border-sky-500/30">
+          <LayoutDashboard class="w-8 h-8 text-sky-400" />
+        </div>
+        <div>
+          <h2 class="text-3xl font-black italic text-white uppercase">Centro de Mando</h2>
+          <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Administra tus publicaciones</p>
+        </div>
       </div>
-      <router-link to="/perfil" class="bg-slate-900 p-4 rounded-2xl border border-slate-700 hover:border-sky-500 transition-all flex items-center gap-2 group">
-        <UserCog class="w-5 h-5 text-slate-400 group-hover:text-sky-400" />
-        <span class="text-xs font-black uppercase text-slate-300">Configurar Perfil</span>
-      </router-link>
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-      <router-link to="/add-tcg" class="bg-slate-800 p-6 rounded-3xl border border-slate-700 hover:border-sky-500 transition-all text-center">
-        <PlusCircle class="w-10 h-10 text-sky-400 mx-auto mb-3" />
-        <h3 class="font-black text-white uppercase italic">Nueva Carta</h3>
-      </router-link>
-      <router-link to="/add-vitrina" class="bg-slate-800 p-6 rounded-3xl border border-slate-700 hover:border-purple-500 transition-all text-center">
-        <ShoppingCart class="w-10 h-10 text-purple-400 mx-auto mb-3" />
-        <h3 class="font-black text-white uppercase italic">Nuevo Objeto</h3>
-      </router-link>
-      <router-link to="/add-lfg" class="bg-slate-800 p-6 rounded-3xl border border-slate-700 hover:border-green-500 transition-all text-center">
-        <UserPlus class="w-10 h-10 text-green-400 mx-auto mb-3" />
-        <h3 class="font-black text-white uppercase italic">Crear Grupo</h3>
-      </router-link>
-    </div>
+    <div v-if="cargando" class="text-center py-20"><Loader2 class="w-12 h-12 animate-spin mx-auto text-sky-500" /></div>
 
-    <div class="bg-slate-800/50 border border-slate-800 rounded-3xl p-8">
-      <h4 class="font-black text-slate-100 uppercase italic mb-6 flex items-center gap-2">
-        <Clock class="w-5 h-5 text-slate-500" /> Mis Publicaciones Recientes
-      </h4>
+    <div v-else class="space-y-6">
       
-      <div v-if="misPublicaciones.length > 0" class="space-y-3">
-        <div v-for="pub in misPublicaciones" :key="pub.id" class="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-900/50 p-4 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all gap-4">
-          
-          <div class="flex items-center gap-4">
-            <span :class="{
-              'text-sky-400 bg-sky-400/10': pub.tipo === 'TCG',
-              'text-purple-400 bg-purple-400/10': pub.tipo === 'Vitrina',
-              'text-green-400 bg-green-400/10': pub.tipo === 'LFG'
-            }" class="text-[9px] font-black px-2 py-1 rounded uppercase tracking-widest shrink-0">
-              {{ pub.tipo }}
-            </span>
-            <div>
-              <p class="font-bold text-slate-200 text-sm truncate">{{ pub.nombre }}</p>
-              <p v-if="pub.tipo !== 'LFG'" class="text-xs text-green-400 font-black mt-0.5">${{ formatearPrecio(pub.datoDinamico) }}</p>
-              <p v-else class="text-xs text-slate-500 font-bold mt-0.5 truncate max-w-[200px] sm:max-w-[400px]">{{ pub.datoDinamico }}</p>
+      <div class="flex overflow-x-auto gap-2 p-2 bg-slate-800 border border-slate-700 rounded-2xl snap-x">
+        <button @click="activeTab = 'tcg'" :class="activeTab === 'tcg' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'" class="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black uppercase text-xs tracking-widest transition-all snap-center whitespace-nowrap"><Layers class="w-4 h-4" /> TCG ({{ misCartas.length }})</button>
+        <button @click="activeTab = 'vitrina'" :class="activeTab === 'vitrina' ? 'bg-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'" class="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black uppercase text-xs tracking-widest transition-all snap-center whitespace-nowrap"><Gem class="w-4 h-4" /> Vitrina ({{ misArticulos.length }})</button>
+        <button @click="activeTab = 'lfg'" :class="activeTab === 'lfg' ? 'bg-green-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'" class="flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-black uppercase text-xs tracking-widest transition-all snap-center whitespace-nowrap"><Users class="w-4 h-4" /> Grupos ({{ misGrupos.length }})</button>
+      </div>
+
+      <div v-show="activeTab === 'tcg'" class="animate-in slide-in-from-left-4 duration-300">
+        <div v-if="misCartas.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700">
+          <Layers class="w-12 h-12 mx-auto text-slate-600 mb-4" />
+          <p class="text-slate-500 font-bold uppercase tracking-widest">No tienes cartas a la venta</p>
+        </div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div v-for="item in misCartas" :key="item.id" class="bg-slate-800 rounded-2xl p-4 border border-slate-700 flex flex-col justify-between">
+            <div class="flex gap-4 items-start">
+              <div class="w-20 h-24 bg-slate-900 rounded-xl bg-cover bg-center shrink-0" :style="{ backgroundImage: `url(${item.imagen_url})` }"></div>
+              <div>
+                <span class="text-[9px] bg-slate-900 px-2 py-1 rounded text-slate-400 uppercase font-bold">{{ item.juego }}</span>
+                <h4 class="font-bold text-white leading-tight mt-2">{{ item.titulo }}</h4>
+                <p class="text-sm text-green-400 font-black mt-1">${{ formatearPrecio(item.precio) }}</p>
+              </div>
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-2">
+              <button @click="abrirEdicion(item, 'tcg')" class="bg-sky-500/10 hover:bg-sky-500 text-sky-400 hover:text-white py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase transition-all border border-sky-500/20"><Edit class="w-4 h-4" /> Editar</button>
+              <button @click="eliminarPublicacion('tcg_exchange', item, 'tcg')" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase transition-all border border-red-500/20"><Trash2 class="w-4 h-4" /> Borrar</button>
             </div>
           </div>
-          
-          <div class="flex items-center justify-end gap-2 shrink-0">
-            <button @click="editarPublicacion(pub)" class="p-2 text-slate-500 hover:text-sky-400 bg-slate-800 rounded-xl transition-colors" title="Editar precio / descripción">
-              <Edit class="w-5 h-5" />
-            </button>
-            <button @click="eliminarPublicacion(pub.id, pub.tabla)" class="p-2 text-slate-500 hover:text-red-500 bg-slate-800 rounded-xl transition-colors" title="Eliminar publicación">
-              <Trash2 class="w-5 h-5" />
-            </button>
-          </div>
-
         </div>
       </div>
 
-      <div v-else class="py-12 text-center border-2 border-dashed border-slate-700 rounded-2xl">
-        <p class="text-slate-600 text-sm font-bold uppercase tracking-widest italic">Aún no has publicado nada</p>
+      <div v-show="activeTab === 'vitrina'" class="animate-in slide-in-from-left-4 duration-300">
+        <div v-if="misArticulos.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700">
+          <Gem class="w-12 h-12 mx-auto text-slate-600 mb-4" />
+          <p class="text-slate-500 font-bold uppercase tracking-widest">No tienes artículos en vitrina</p>
+        </div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div v-for="item in misArticulos" :key="item.id" class="bg-slate-800 rounded-2xl p-4 border border-slate-700 flex flex-col justify-between">
+            <div class="flex gap-4 items-start">
+              <div class="w-20 h-20 bg-slate-900 rounded-xl bg-cover bg-center shrink-0" :style="{ backgroundImage: `url(${item.imagen_url})` }"></div>
+              <div>
+                <span class="text-[9px] bg-purple-900/30 text-purple-400 px-2 py-1 rounded uppercase font-bold">{{ item.categoria }}</span>
+                <h4 class="font-bold text-white leading-tight mt-2">{{ item.item_nombre }}</h4>
+                <p class="text-sm text-green-400 font-black mt-1">${{ formatearPrecio(item.precio) }}</p>
+              </div>
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-2">
+              <button @click="abrirEdicion(item, 'vitrina')" class="bg-purple-500/10 hover:bg-purple-500 text-purple-400 hover:text-white py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase transition-all border border-purple-500/20"><Edit class="w-4 h-4" /> Editar</button>
+              <button @click="eliminarPublicacion('colecciones', item, 'vitrina')" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase transition-all border border-red-500/20"><Trash2 class="w-4 h-4" /> Borrar</button>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <div v-show="activeTab === 'lfg'" class="animate-in slide-in-from-left-4 duration-300">
+        <div v-if="misGrupos.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700">
+          <Users class="w-12 h-12 mx-auto text-slate-600 mb-4" />
+          <p class="text-slate-500 font-bold uppercase tracking-widest">No has buscado grupo últimamente</p>
+        </div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div v-for="item in misGrupos" :key="item.id" class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex flex-col justify-between">
+            <div>
+              <span class="text-[9px] bg-green-900/30 text-green-400 px-2 py-1 rounded uppercase font-bold">{{ item.juego }}</span>
+              <h3 class="font-bold text-white mt-2 text-lg">{{ item.titulo }}</h3>
+              <p class="text-sm text-slate-400 mt-2 line-clamp-2">{{ item.descripcion }}</p>
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-2">
+              <button @click="abrirEdicion(item, 'lfg')" class="bg-green-500/10 hover:bg-green-500 text-green-400 hover:text-white py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase transition-all border border-green-500/20"><Edit class="w-4 h-4" /> Editar</button>
+              <button @click="eliminarPublicacion('lfg_posts', item, 'lfg')" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase transition-all border border-red-500/20"><Trash2 class="w-4 h-4" /> Borrar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
-  </div>
-  <div v-else-if="cargando" class="flex justify-center items-center h-64">
-    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-sky-500"></div>
+    <div v-if="modalEdicion && itemEditando" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm animate-in fade-in duration-200">
+      <div class="bg-slate-800 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden relative">
+        <div class="p-6 border-b border-slate-700 flex justify-between items-center">
+          <h3 class="text-xl font-black italic text-white uppercase flex items-center gap-2">
+            <Edit class="w-5 h-5 text-sky-400" /> Editar Publicación
+          </h3>
+          <button @click="cerrarEdicion" class="text-slate-400 hover:text-white"><X class="w-6 h-6" /></button>
+        </div>
+        
+        <form @submit.prevent="guardarEdicion" class="p-6 space-y-4">
+          <div class="space-y-2">
+            <label class="text-[10px] font-black uppercase text-slate-500">Título / Nombre</label>
+            <input v-if="tipoEditando === 'vitrina'" v-model="itemEditando.item_nombre" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 font-bold">
+            <input v-else v-model="itemEditando.titulo" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 font-bold">
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4" v-if="tipoEditando !== 'lfg'">
+            <div class="space-y-2">
+              <label class="text-[10px] font-black uppercase text-slate-500">Precio</label>
+              <input v-model="itemEditando.precio" type="number" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 font-bold">
+            </div>
+            <div class="space-y-2">
+              <label class="text-[10px] font-black uppercase text-slate-500">WhatsApp</label>
+              <input v-model="itemEditando.telefono" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 font-bold">
+            </div>
+          </div>
+
+          <div class="space-y-2" v-if="tipoEditando === 'lfg'">
+            <label class="text-[10px] font-black uppercase text-slate-500">WhatsApp de Contacto</label>
+            <input v-model="itemEditando.telefono" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 font-bold">
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-black uppercase text-slate-500">Descripción</label>
+            <textarea v-model="itemEditando.descripcion" rows="4" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl outline-none focus:border-sky-500 font-bold"></textarea>
+          </div>
+
+          <button type="submit" :disabled="guardando" class="w-full mt-4 bg-sky-600 hover:bg-sky-500 text-white py-4 rounded-xl flex items-center justify-center gap-2 text-sm font-black uppercase tracking-widest shadow-lg transition-all">
+            <Loader2 v-if="guardando" class="w-5 h-5 animate-spin" />
+            <Save v-else class="w-5 h-5" />
+            {{ guardando ? 'Guardando...' : 'Guardar Cambios' }}
+          </button>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
