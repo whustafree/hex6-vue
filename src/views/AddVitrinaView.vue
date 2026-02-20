@@ -87,7 +87,7 @@ const subirPublicacion = async () => {
       <form @submit.prevent="subirPublicacion" class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div v-for="(n, index) in 3" :key="index" class="space-y-2">
-            <label class="text-[10px] font-black uppercase text-slate-500">Foto {{ index + 1 }} {{ index === 0 ? '(Principal)' : '' }}</label>
+            <label class="text-[10px] font-black uppercase text-slate-500">Foto {{ index + 1 }} {{ index === 0 ? '(Ppal)' : '' }}</label>
             <div 
               @click="$refs['fileInput' + index][0].click()"
               class="h-40 bg-slate-900 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-500 transition-all overflow-hidden bg-cover bg-center"
@@ -134,7 +134,7 @@ const subirPublicacion = async () => {
           <textarea v-model="nuevoItem.descripcion" rows="3" class="input-hex"></textarea>
         </div>
 
-        <button :disabled="enviando" type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+        <button :disabled="enviando" type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
           <Loader2 v-if="enviando" class="w-5 h-5 animate-spin" />
           <CheckCircle v-else class="w-5 h-5" />
           {{ enviando ? 'Subiendo...' : 'Publicar' }}
