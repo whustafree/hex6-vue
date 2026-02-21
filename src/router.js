@@ -14,6 +14,7 @@ import AddLfgView from './views/AddLfgView.vue'
 import RulesView from './views/RulesView.vue'
 import FavoritosView from './views/FavoritosView.vue'
 import PublicProfileView from './views/PublicProfileView.vue'
+import UpdatePasswordView from './views/UpdatePasswordView.vue'
 
 const routes = [
   // RUTAS PÚBLICAS (Cualquiera puede entrar)
@@ -24,6 +25,7 @@ const routes = [
   { path: '/login', component: LoginView },
   { path: '/reglas', component: RulesView },
   { path: '/u/:username', component: PublicProfileView },
+  { path: '/update-password', component: UpdatePasswordView },
   
   // RUTAS PRIVADAS (Necesitan sesión iniciada)
   { path: '/dashboard', component: DashboardView, meta: { requiresAuth: true } },

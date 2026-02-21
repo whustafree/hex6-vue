@@ -32,9 +32,17 @@ onMounted(() => {
     usuario.value = data.session?.user ?? null
     if (usuario.value) iniciarNotificacionesGlobales(usuario.value.id)
   })
-  supabase.auth.onAuthStateChange((_event, session) => {
+  
+  // AQUÍ ESTÁ EL CAMBIO DE MAGIA PARA LA RECUPERACIÓN DE CONTRASEÑA
+  supabase.auth.onAuthStateChange((event, session) => {
     usuario.value = session?.user ?? null
     if (usuario.value) iniciarNotificacionesGlobales(usuario.value.id)
+
+    // Si el usuario viene de un link de recuperación de contraseña...
+    if (event === 'PASSWORD_RECOVERY') {
+      showToast('Modo recuperación activado', 'info')
+      router.push('/update-password')
+    }
   })
 })
 
