@@ -95,6 +95,20 @@ const cerrarSesion = async () => {
       <router-view v-slot="{ Component }"><transition name="fade" mode="out-in"><component :is="Component" /></transition></router-view>
     </main>
 
+    <footer class="mt-auto border-t border-slate-800 bg-slate-950/80 backdrop-blur-md py-6 text-center text-slate-500 text-xs font-bold pb-24 md:pb-6 z-40 relative">
+      <div class="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p class="uppercase tracking-widest">© 2026 HEX6 Hub Geek.</p>
+        
+        <router-link to="/rules" class="flex items-center gap-2 hover:text-sky-400 transition-colors uppercase tracking-widest bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 hover:border-sky-500 shadow-lg">
+          <ShieldCheck class="w-4 h-4" /> Reglas de la Comunidad
+        </router-link>
+        
+        <p class="flex items-center gap-1.5 uppercase tracking-widest">
+          Desarrollado con <Heart class="w-4 h-4 text-red-500 animate-pulse" /> por <span class="text-sky-400 font-black tracking-tighter text-sm">WHUSTAF</span>
+        </p>
+      </div>
+    </footer>
+
     <div v-if="usuario" class="fixed bottom-24 right-4 z-[100] md:bottom-10 md:right-10 flex flex-col items-end">
       <transition name="toast">
         <div v-if="menuCrearAbierto" class="bg-slate-800/95 backdrop-blur-md border border-slate-700 p-2 rounded-2xl shadow-2xl flex flex-col gap-2 w-48 mb-4">
