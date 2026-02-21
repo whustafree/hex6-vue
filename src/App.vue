@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { 
   Hexagon, LogOut, User, Layers, Gem, Users, LayoutDashboard, ShieldCheck, Heart,
-  CheckCircle, AlertCircle, Info 
+  CheckCircle, AlertCircle, Info, Plus 
 } from 'lucide-vue-next'
 import { supabase } from './supabase'
 import { useRouter } from 'vue-router'
@@ -10,6 +10,7 @@ import { toasts, showToast } from './utils/toast'
 
 const router = useRouter()
 const usuario = ref(null)
+const menuCrearAbierto = ref(false) // Controlador del menú flotante
 let canalGlobal = null 
 
 const iniciarNotificacionesGlobales = (userId) => {
@@ -33,12 +34,10 @@ onMounted(() => {
     if (usuario.value) iniciarNotificacionesGlobales(usuario.value.id)
   })
   
-  // AQUÍ ESTÁ EL CAMBIO DE MAGIA PARA LA RECUPERACIÓN DE CONTRASEÑA
   supabase.auth.onAuthStateChange((event, session) => {
     usuario.value = session?.user ?? null
     if (usuario.value) iniciarNotificacionesGlobales(usuario.value.id)
 
-    // Si el usuario viene de un link de recuperación de contraseña...
     if (event === 'PASSWORD_RECOVERY') {
       showToast('Modo recuperación activado', 'info')
       router.push('/update-password')
@@ -55,7 +54,7 @@ const cerrarSesion = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col relative pb-20 md:pb-0">
+  <div class="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col relative pb-20 md:pb-0 overflow-x-hidden">
     
     <nav class="sticky top-0 z-50 p-4 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
       <div class="max-w-6xl mx-auto flex justify-between items-center gap-2">
@@ -96,6 +95,26 @@ const cerrarSesion = async () => {
       <router-view v-slot="{ Component }"><transition name="fade" mode="out-in"><component :is="Component" /></transition></router-view>
     </main>
 
+    <div v-if="usuario" class="fixed bottom-24 right-4 z-[100] md:bottom-10 md:right-10 flex flex-col items-end">
+      <transition name="toast">
+        <div v-if="menuCrearAbierto" class="bg-slate-800/95 backdrop-blur-md border border-slate-700 p-2 rounded-2xl shadow-2xl flex flex-col gap-2 w-48 mb-4">
+          <router-link to="/add-tcg" @click="menuCrearAbierto = false" class="flex items-center gap-3 p-3 hover:bg-slate-700 rounded-xl transition-all text-sm font-bold text-sky-400">
+            <Layers class="w-5 h-5" /> Vender TCG
+          </router-link>
+          <router-link to="/add-vitrina" @click="menuCrearAbierto = false" class="flex items-center gap-3 p-3 hover:bg-slate-700 rounded-xl transition-all text-sm font-bold text-purple-400">
+            <Gem class="w-5 h-5" /> Añadir a Vitrina
+          </router-link>
+          <router-link to="/add-lfg" @click="menuCrearAbierto = false" class="flex items-center gap-3 p-3 hover:bg-slate-700 rounded-xl transition-all text-sm font-bold text-green-400">
+            <Users class="w-5 h-5" /> Crear Grupo
+          </router-link>
+        </div>
+      </transition>
+      
+      <button @click="menuCrearAbierto = !menuCrearAbierto" class="bg-sky-600 hover:bg-sky-500 text-white p-4 rounded-full shadow-[0_0_20px_rgba(2,132,199,0.5)] transition-all duration-300 flex items-center justify-center border-2 border-slate-900" :class="{'rotate-45 bg-red-500 hover:bg-red-400 shadow-red-500/50': menuCrearAbierto}">
+        <Plus class="w-7 h-7" />
+      </button>
+    </div>
+
     <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 z-50 flex justify-around items-end px-2 py-2 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
       <router-link to="/tcg" class="flex flex-col items-center gap-1 p-2 text-slate-500" active-class="text-sky-400">
         <Layers class="w-6 h-6" /><span class="text-[9px] font-black uppercase tracking-wider">TCG</span>
@@ -133,7 +152,6 @@ const cerrarSesion = async () => {
 </template>
 
 <style>
-/* Soportes para pantallas de iPhone (Notch) */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .pb-safe { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
 }

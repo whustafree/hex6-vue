@@ -13,15 +13,19 @@ const activeTab = ref('mensajes')
 const subTabMensajes = ref('recibidos')
 const usuarioEmail = ref('')
 
-const misCartas = ref([]); const misArticulos = ref([]); const misGrupos = ref([])
+const misCartas = ref([])
+const misArticulos = ref([])
+const misGrupos = ref([])
 const misMensajesRecibidos = ref([]) 
 const misMensajesEnviados = ref([]) 
 
-const modalEdicion = ref(false); const itemEditando = ref(null); const tipoEditando = ref(''); const guardando = ref(false)
+const modalEdicion = ref(false)
+const itemEditando = ref(null)
+const tipoEditando = ref('')
+const guardando = ref(false)
 const respuestasPendientes = ref({}) 
 let canalDashboard = null 
 
-// ... (Todo tu código JS/Lógica de funciones se mantiene exactamente igual) ...
 const cargarMisPublicaciones = async () => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -31,8 +35,10 @@ const cargarMisPublicaciones = async () => {
 
     const { data: tcg } = await supabase.from('tcg_exchange').select('*').eq('user_id', userId).order('id', { ascending: false })
     if (tcg) misCartas.value = tcg
+    
     const { data: vitrina } = await supabase.from('colecciones').select('*').eq('user_id', userId).order('id', { ascending: false })
     if (vitrina) misArticulos.value = vitrina
+    
     const { data: lfg } = await supabase.from('lfg_posts').select('*').eq('user_id', userId).order('created_at', { ascending: false })
     if (lfg) misGrupos.value = lfg
 
@@ -91,9 +97,11 @@ const eliminarPublicacion = async (tabla, item, tipo) => {
     const { error } = await supabase.from(tabla).delete().eq('id', item.id)
     if (error) throw error
     if (tipo !== 'lfg') { if(item.imagen_url) await destruirImagenStorage(item.imagen_url); if(item.imagen_url_2) await destruirImagenStorage(item.imagen_url_2); if(item.imagen_url_3) await destruirImagenStorage(item.imagen_url_3) }
+    
     if (tipo === 'tcg') misCartas.value = misCartas.value.filter(i => i.id !== item.id)
     if (tipo === 'vitrina') misArticulos.value = misArticulos.value.filter(i => i.id !== item.id)
     if (tipo === 'lfg') misGrupos.value = misGrupos.value.filter(i => i.id !== item.id)
+    
     misMensajesRecibidos.value = misMensajesRecibidos.value.filter(m => m.item_id !== item.id)
     showToast('Publicación eliminada', 'info')
   } catch (error) { showToast(error.message, 'error') }
@@ -282,6 +290,27 @@ onUnmounted(() => { if (canalDashboard) supabase.removeChannel(canalDashboard) }
         </div>
       </div>
 
+      <div v-show="activeTab === 'lfg'" class="animate-in slide-in-from-left-4 duration-300">
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+          <h3 class="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2 w-full"><Users class="w-5 h-5 text-green-400"/> Mis Grupos LFG</h3>
+          <router-link to="/add-lfg" class="w-full sm:w-auto bg-green-600 hover:bg-green-500 text-white px-4 py-3 sm:py-2.5 rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2 shadow-lg"><PlusCircle class="w-4 h-4"/> Crear Grupo</router-link>
+        </div>
+        <div v-if="misGrupos.length === 0" class="text-center py-20 bg-slate-800/50 rounded-3xl border-2 border-dashed border-slate-700"><p class="text-slate-500 font-bold uppercase tracking-widest text-xs">Vacio</p></div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div v-for="item in misGrupos" :key="item.id" class="bg-slate-800 rounded-2xl p-5 border border-slate-700 flex flex-col justify-between shadow-lg">
+            <div class="mb-4">
+              <h4 class="font-bold text-white leading-tight text-lg">{{ item.titulo }}</h4>
+              <p class="text-xs text-slate-400 mt-2 line-clamp-3">{{ item.descripcion }}</p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 mt-auto pt-4 border-t border-slate-700">
+              <button @click="abrirEdicion(item, 'lfg')" class="bg-green-500/10 text-green-400 p-2 rounded-xl text-[10px] font-black uppercase border border-green-500/20 hover:bg-green-500/20 transition-colors">Editar</button>
+              <button @click="eliminarPublicacion('lfg_posts', item, 'lfg')" class="bg-red-500/10 text-red-500 p-2 rounded-xl text-[10px] font-black uppercase border border-red-500/20 hover:bg-red-500/20 transition-colors">Borrar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div v-if="modalEdicion && itemEditando" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm">
@@ -295,6 +324,9 @@ onUnmounted(() => { if (canalDashboard) supabase.removeChannel(canalDashboard) }
           <div class="flex flex-col sm:flex-row gap-4" v-if="tipoEditando !== 'lfg'">
             <input v-model="itemEditando.precio" type="number" required class="w-full bg-slate-900 border border-slate-700 text-white p-3 rounded-xl outline-none font-bold text-sm">
             <input v-model="itemEditando.telefono" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white p-3 rounded-xl outline-none font-bold text-sm">
+          </div>
+          <div v-else class="flex flex-col sm:flex-row gap-4">
+            <input v-model="itemEditando.telefono" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white p-3 rounded-xl outline-none font-bold text-sm" placeholder="Tu WhatsApp">
           </div>
           
           <textarea v-model="itemEditando.descripcion" rows="4" required class="w-full bg-slate-900 border border-slate-700 text-white p-3 rounded-xl outline-none font-bold text-sm"></textarea>
