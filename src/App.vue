@@ -99,7 +99,7 @@ const cerrarSesion = async () => {
       <div class="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
         <p class="uppercase tracking-widest">© 2026 HEX6 Hub Geek.</p>
         
-        <router-link to="/rules" class="flex items-center gap-2 hover:text-sky-400 transition-colors uppercase tracking-widest bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 hover:border-sky-500 shadow-lg">
+        <router-link to="/reglas" class="flex items-center gap-2 hover:text-sky-400 transition-colors uppercase tracking-widest bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 hover:border-sky-500 shadow-lg">
           <ShieldCheck class="w-4 h-4" /> Reglas de la Comunidad
         </router-link>
         
