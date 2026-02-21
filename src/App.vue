@@ -20,7 +20,6 @@ const iniciarNotificacionesGlobales = (userId) => {
       showToast('🔔 ¡Alguien hizo una pregunta en tu publicación!', 'info')
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'preguntas', filter: `remitente_id=eq.${userId}` }, payload => {
-       // CORRECCIÓN: Solo avisar si la respuesta es NUEVA (evita alertas dobles)
        if (payload.new.respuesta && payload.old.respuesta !== payload.new.respuesta) {
           showToast('🔔 ¡El vendedor respondió tu pregunta!', 'success')
        }
@@ -48,8 +47,9 @@ const cerrarSesion = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col relative">
-    <nav class="sticky top-0 z-50 p-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 shadow-lg">
+  <div class="min-h-screen bg-slate-900 text-slate-100 font-sans flex flex-col relative pb-20 md:pb-0">
+    
+    <nav class="sticky top-0 z-50 p-4 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
       <div class="max-w-6xl mx-auto flex justify-between items-center gap-2">
         <router-link to="/" class="flex items-center gap-2 md:gap-3 group shrink-0">
           <div class="relative flex items-center justify-center">
@@ -62,47 +62,73 @@ const cerrarSesion = async () => {
           </div>
         </router-link>
 
-        <div class="hidden lg:flex items-center gap-6 border-r border-slate-800 pr-6 h-8">
-          <router-link to="/tcg" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-sky-400"><Layers class="w-3 h-3" /> TCG</router-link>
-          <router-link to="/vitrina" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-purple-400"><Gem class="w-3 h-3" /> Vitrina</router-link>
-          <router-link to="/grupos" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-green-400"><Users class="w-3 h-3" /> Grupos</router-link>
-          <router-link to="/reglas" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-yellow-400"><ShieldCheck class="w-3 h-3" /> Reglas</router-link>
+        <div class="hidden md:flex items-center gap-6 border-r border-slate-800 pr-6 h-8">
+          <router-link to="/tcg" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-sky-400"><Layers class="w-4 h-4" /> TCG</router-link>
+          <router-link to="/vitrina" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-purple-400"><Gem class="w-4 h-4" /> Vitrina</router-link>
+          <router-link to="/grupos" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-green-400"><Users class="w-4 h-4" /> Grupos</router-link>
+          <router-link to="/favoritos" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white uppercase tracking-tighter transition-colors" active-class="text-pink-400"><Heart class="w-4 h-4" /> Favoritos</router-link>
         </div>
 
-        <div class="flex items-center gap-2 md:gap-4">
-          <router-link to="/favoritos" class="p-2 md:p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-pink-500 transition-all"><Heart class="w-5 h-5" /></router-link>
+        <div class="flex items-center gap-2">
           <div v-if="usuario" class="flex items-center gap-2">
-            <router-link to="/dashboard" class="flex items-center gap-2 bg-slate-900/50 p-1.5 md:pr-4 rounded-xl border border-slate-800 hover:border-sky-500 transition-all">
+            <router-link to="/dashboard" class="hidden md:flex items-center gap-2 bg-slate-900/50 p-1.5 pr-4 rounded-xl border border-slate-800 hover:border-sky-500 transition-all">
               <div class="bg-sky-500/20 p-2 rounded-lg"><LayoutDashboard class="w-4 h-4 text-sky-400" /></div>
-              <p class="hidden sm:block text-xs font-black truncate max-w-[80px] uppercase">{{ usuario.email.split('@')[0] }}</p>
+              <p class="text-xs font-black truncate max-w-[100px] uppercase">{{ usuario.email.split('@')[0] }}</p>
             </router-link>
-            <button @click="cerrarSesion" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl border border-red-500/20 transition-all"><LogOut class="w-5 h-5" /></button>
+            <button @click="cerrarSesion" class="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl border border-red-500/20 transition-all shadow-lg" title="Cerrar Sesión"><LogOut class="w-5 h-5" /></button>
           </div>
           <router-link v-else to="/login" class="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all uppercase tracking-widest shadow-lg">
-            <User class="w-4 h-4" /><span class="hidden sm:block">Entrar</span>
+            <User class="w-4 h-4" /><span>Entrar</span>
           </router-link>
         </div>
       </div>
     </nav>
 
-    <main class="max-w-6xl mx-auto w-full p-4 mt-4 flex-1">
+    <main class="max-w-6xl mx-auto w-full p-4 flex-1">
       <router-view v-slot="{ Component }"><transition name="fade" mode="out-in"><component :is="Component" /></transition></router-view>
     </main>
 
-    <div class="fixed bottom-6 right-6 z-[999] flex flex-col gap-3 pointer-events-none">
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 z-50 flex justify-around items-end px-2 py-2 pb-safe shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+      <router-link to="/tcg" class="flex flex-col items-center gap-1 p-2 text-slate-500" active-class="text-sky-400">
+        <Layers class="w-6 h-6" /><span class="text-[9px] font-black uppercase tracking-wider">TCG</span>
+      </router-link>
+      <router-link to="/vitrina" class="flex flex-col items-center gap-1 p-2 text-slate-500" active-class="text-purple-400">
+        <Gem class="w-6 h-6" /><span class="text-[9px] font-black uppercase tracking-wider">Vitrina</span>
+      </router-link>
+      
+      <router-link to="/dashboard" class="relative flex flex-col items-center group mb-1 text-slate-500" active-class="text-orange-400">
+        <div class="absolute -top-7 bg-slate-900 border border-slate-700 p-3 rounded-2xl shadow-xl shadow-black transition-all" :class="$route.path === '/dashboard' ? 'bg-orange-600 border-orange-500 shadow-orange-900/50 text-white' : 'text-slate-400 group-hover:text-orange-400 group-hover:border-orange-500'">
+          <LayoutDashboard class="w-6 h-6" />
+        </div>
+        <span class="text-[9px] font-black uppercase tracking-wider mt-6">Panel</span>
+      </router-link>
+
+      <router-link to="/grupos" class="flex flex-col items-center gap-1 p-2 text-slate-500" active-class="text-green-400">
+        <Users class="w-6 h-6" /><span class="text-[9px] font-black uppercase tracking-wider">Grupos</span>
+      </router-link>
+      <router-link to="/favoritos" class="flex flex-col items-center gap-1 p-2 text-slate-500" active-class="text-pink-400">
+        <Heart class="w-6 h-6" /><span class="text-[9px] font-black uppercase tracking-wider">Favs</span>
+      </router-link>
+    </nav>
+
+    <div class="fixed top-20 right-4 z-[999] flex flex-col gap-3 pointer-events-none md:bottom-6 md:top-auto md:right-6">
       <transition-group name="toast">
         <div v-for="toast in toasts" :key="toast.id" class="pointer-events-auto flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md font-bold text-sm min-w-[280px]" :class="{'bg-green-500/10 border-green-500/30 text-green-400': toast.tipo === 'success', 'bg-red-500/10 border-red-500/30 text-red-400': toast.tipo === 'error', 'bg-sky-500/10 border-sky-500/30 text-sky-400': toast.tipo === 'info'}">
-          <CheckCircle v-if="toast.tipo === 'success'" class="w-5 h-5" />
-          <AlertCircle v-if="toast.tipo === 'error'" class="w-5 h-5" />
-          <Info v-if="toast.tipo === 'info'" class="w-5 h-5" />
-          {{ toast.mensaje }}
+          <CheckCircle v-if="toast.tipo === 'success'" class="w-5 h-5 shrink-0" />
+          <AlertCircle v-if="toast.tipo === 'error'" class="w-5 h-5 shrink-0" />
+          <Info v-if="toast.tipo === 'info'" class="w-5 h-5 shrink-0" />
+          <span class="leading-tight">{{ toast.mensaje }}</span>
         </div>
       </transition-group>
     </div>
   </div>
 </template>
 
-<style scoped>
+<style>
+/* Soportes para pantallas de iPhone (Notch) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe { padding-bottom: calc(0.5rem + env(safe-area-inset-bottom)); }
+}
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .toast-enter-active, .toast-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
