@@ -1,143 +1,111 @@
 <script setup>
 import { ref } from 'vue'
-import { supabase } from '../supabase'
 import { useRouter } from 'vue-router'
-import { ImagePlus, Loader2, CheckCircle, ArrowLeft, Gem } from 'lucide-vue-next'
+import { supabase } from '../supabase'
+import { ImagePlus, Loader2, Save, X } from 'lucide-vue-next'
+import { showToast } from '../utils/toast'
+import imageCompression from 'browser-image-compression'
 
 const router = useRouter()
-const enviando = ref(false)
-const fotos = ref([null, null, null])
-const vistasPrevias = ref([null, null, null])
+const cargando = ref(false)
+const formulario = ref({ item_nombre: '', precio: '', descripcion: '', telefono: '' })
+const archivoImagen = ref(null)
+const previsualizacion = ref(null)
 
-const nuevoItem = ref({
-  item_nombre: '',
-  categoria: 'Figuras',
-  precio: 0,
-  descripcion: '',
-  telefono: ''
-})
+const seleccionarImagen = async (event) => {
+  const archivoOriginal = event.target.files[0]
+  if (!archivoOriginal) return
 
-const handleFileChange = (e, index) => {
-  const file = e.target.files[0]
-  if (file) {
-    fotos.value[index] = file
-    vistasPrevias.value[index] = URL.createObjectURL(file)
+  // LÍMITE DE TAMAÑO (5MB)
+  if (archivoOriginal.size > 5 * 1024 * 1024) {
+    showToast('La imagen es muy pesada. Máximo 5MB.', 'error')
+    event.target.value = ''
+    return
+  }
+
+  try {
+    // COMPRESIÓN
+    const opciones = { maxSizeMB: 0.5, maxWidthOrHeight: 1080, useWebWorker: true }
+    const archivoComprimido = await imageCompression(archivoOriginal, opciones)
+    
+    archivoImagen.value = archivoComprimido
+    previsualizacion.value = URL.createObjectURL(archivoComprimido)
+  } catch (error) {
+    showToast('Error al procesar la imagen', 'error')
   }
 }
 
-const subirPublicacion = async () => {
-  enviando.value = true
+const limpiarImagen = () => { archivoImagen.value = null; previsualizacion.value = null }
+
+const subirArticulo = async () => {
+  if (!archivoImagen.value) return showToast('Agrega una foto', 'error')
+  cargando.value = true
+
   try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return alert('Debes iniciar sesión')
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    if (userError) throw userError
 
-    const urls = [null, null, null]
+    const fileExt = archivoImagen.value.name.split('.').pop()
+    const fileName = `${Math.random()}.${fileExt}`
+    const filePath = `vitrina/${userData.user.id}/${fileName}`
 
-    for (let i = 0; i < fotos.value.length; i++) {
-      if (fotos.value[i]) {
-        const file = fotos.value[i]
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Math.random()}.${fileExt}`
-        const filePath = `${session.user.id}/${fileName}`
+    const { error: uploadError } = await supabase.storage.from('items').upload(filePath, archivoImagen.value)
+    if (uploadError) throw uploadError
 
-        const { error: uploadError } = await supabase.storage
-          .from('items')
-          .upload(filePath, file)
+    const { data: urlData } = supabase.storage.from('items').getPublicUrl(filePath)
 
-        if (uploadError) throw uploadError
+    const { error: dbError } = await supabase.from('colecciones').insert([{
+        user_id: userData.user.id,
+        item_nombre: formulario.value.item_nombre,
+        precio: formulario.value.precio,
+        descripcion: formulario.value.descripcion,
+        imagen_url: urlData.publicUrl,
+        telefono: formulario.value.telefono,
+        estado: 'disponible'
+      }])
+    if (dbError) throw dbError
 
-        const { data: urlData } = supabase.storage.from('items').getPublicUrl(filePath)
-        urls[i] = urlData.publicUrl
-      }
-    }
-
-    const { error } = await supabase.from('colecciones').insert({
-      user_id: session.user.id,
-      item_nombre: nuevoItem.value.item_nombre,
-      categoria: nuevoItem.value.categoria,
-      precio: nuevoItem.value.precio,
-      descripcion: nuevoItem.value.descripcion,
-      telefono: nuevoItem.value.telefono,
-      imagen_url: urls[0],
-      imagen_url_2: urls[1],
-      imagen_url_3: urls[2]
-    })
-
-    if (error) throw error
+    showToast('¡Artículo subido con éxito!', 'success')
     router.push('/vitrina')
   } catch (error) {
-    alert('Error: ' + error.message)
+    showToast('Error: ' + error.message, 'error')
   } finally {
-    enviando.value = false
+    cargando.value = false
   }
 }
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto pb-20 animate-in fade-in duration-500 p-4">
-    <button @click="router.back()" class="flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors font-bold uppercase text-xs">
-      <ArrowLeft class="w-4 h-4" /> Volver
-    </button>
-
-    <div class="bg-slate-800 p-6 md:p-8 rounded-3xl border border-slate-700 shadow-2xl">
-      <h2 class="text-2xl md:text-3xl font-black italic text-purple-400 flex items-center gap-3 mb-8 uppercase">
-        <Gem class="w-8 h-8" /> Nueva Publicación Vitrina
-      </h2>
-
-      <form @submit.prevent="subirPublicacion" class="space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div v-for="(n, index) in 3" :key="index" class="space-y-2">
-            <label class="text-[10px] font-black uppercase text-slate-500">Foto {{ index + 1 }} {{ index === 0 ? '(Ppal)' : '' }}</label>
-            <div 
-              @click="$refs['fileInput' + index][0].click()"
-              class="h-40 bg-slate-900 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-500 transition-all overflow-hidden bg-cover bg-center"
-              :style="{ backgroundImage: `url(${vistasPrevias[index]})` }"
-            >
-              <div v-if="!vistasPrevias[index]" class="text-center p-4">
-                <ImagePlus class="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                <span class="text-[10px] text-slate-500 font-bold uppercase">Subir</span>
-              </div>
-              <input :ref="'fileInput' + index" type="file" class="hidden" accept="image/*" @change="(e) => handleFileChange(e, index)">
-            </div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="space-y-2">
-            <label class="text-xs font-black uppercase text-slate-500">Nombre</label>
-            <input v-model="nuevoItem.item_nombre" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold">
-          </div>
-          <div class="space-y-2">
-            <label class="text-xs font-black uppercase text-slate-500">Categoría</label>
-            <select v-model="nuevoItem.categoria" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold appearance-none">
-              <option>Figuras</option>
-              <option>Consolas</option>
-              <option>Retro</option>
-              <option>Manga</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="space-y-2">
-            <label class="text-xs font-black uppercase text-slate-500">Precio</label>
-            <input v-model="nuevoItem.precio" type="number" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold">
-          </div>
-          <div class="space-y-2">
-            <label class="text-xs font-black uppercase text-slate-500">WhatsApp</label>
-            <input v-model="nuevoItem.telefono" type="text" required class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold">
-          </div>
-        </div>
-
+  <div class="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-500 pb-20">
+    <div class="bg-slate-800/50 p-6 md:p-8 rounded-3xl border border-slate-700 shadow-xl backdrop-blur-sm">
+      <h2 class="text-2xl font-black italic text-purple-400 uppercase tracking-tight mb-6 flex items-center gap-2">Añadir a Vitrina</h2>
+      
+      <form @submit.prevent="subirArticulo" class="space-y-6">
         <div class="space-y-2">
-          <label class="text-xs font-black uppercase text-slate-500">Descripción</label>
-          <textarea v-model="nuevoItem.descripcion" rows="3" class="w-full bg-slate-900 border border-slate-700 text-white px-4 py-3 rounded-xl focus:border-purple-500 outline-none font-bold"></textarea>
+          <label class="text-xs font-bold text-slate-400 uppercase tracking-widest">Foto del artículo (Max 5MB)</label>
+          <div v-if="!previsualizacion" class="relative border-2 border-dashed border-slate-600 rounded-2xl p-10 hover:border-purple-500 transition-all bg-slate-900/50 text-center group">
+            <input type="file" accept="image/*" @change="seleccionarImagen" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <ImagePlus class="w-10 h-10 mx-auto mb-3 text-slate-500 group-hover:text-purple-400 transition-colors" />
+            <p class="text-sm font-bold text-slate-300">Toca para subir una foto</p>
+            <p class="text-xs text-slate-500 mt-1">Se optimizará automáticamente</p>
+          </div>
+          <div v-else class="relative w-full h-64 md:h-80 rounded-2xl overflow-hidden border border-slate-700">
+            <img :src="previsualizacion" class="w-full h-full object-cover" />
+            <button @click.prevent="limpiarImagen" class="absolute top-3 right-3 bg-red-500/90 hover:bg-red-500 text-white p-2 rounded-xl backdrop-blur-sm shadow-lg transition-all"><X class="w-5 h-5" /></button>
+          </div>
         </div>
 
-        <button :disabled="enviando" type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-black py-4 rounded-2xl transition-all uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg">
-          <Loader2 v-if="enviando" class="w-5 h-5 animate-spin" />
-          <CheckCircle v-else class="w-5 h-5" />
-          {{ enviando ? 'Subiendo...' : 'Publicar' }}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-500 tracking-widest pl-1">Nombre del Artículo</label><input v-model="formulario.item_nombre" type="text" required placeholder="Ej: Nintendo Switch OLED" class="w-full bg-slate-900 border border-slate-700 text-white p-3 md:p-4 rounded-xl outline-none focus:border-purple-500 transition-all font-bold placeholder:text-slate-600 text-sm"></div>
+          <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-500 tracking-widest pl-1">Precio (CLP)</label><input v-model="formulario.precio" type="number" required placeholder="Ej: 250000" class="w-full bg-slate-900 border border-slate-700 text-white p-3 md:p-4 rounded-xl outline-none focus:border-purple-500 transition-all font-bold placeholder:text-slate-600 text-sm"></div>
+        </div>
+        
+        <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-500 tracking-widest pl-1">Tu WhatsApp</label><input v-model="formulario.telefono" type="tel" required placeholder="+56 9 1234 5678" class="w-full bg-slate-900 border border-slate-700 text-white p-3 md:p-4 rounded-xl outline-none focus:border-purple-500 transition-all font-bold placeholder:text-slate-600 text-sm"></div>
+        <div class="space-y-1"><label class="text-[10px] font-black uppercase text-slate-500 tracking-widest pl-1">Detalles</label><textarea v-model="formulario.descripcion" rows="4" required placeholder="Estado, incluye caja, etc." class="w-full bg-slate-900 border border-slate-700 text-white p-3 md:p-4 rounded-xl outline-none focus:border-purple-500 transition-all font-bold placeholder:text-slate-600 resize-none text-sm"></textarea></div>
+
+        <button type="submit" :disabled="cargando" class="w-full bg-purple-600 hover:bg-purple-500 text-white p-4 rounded-xl font-black uppercase tracking-widest transition-all shadow-lg flex justify-center items-center gap-2 mt-4 text-sm disabled:opacity-50">
+          <Loader2 v-if="cargando" class="w-5 h-5 animate-spin" />
+          <span v-else class="flex items-center gap-2"><Save class="w-5 h-5" /> Publicar Artículo</span>
         </button>
       </form>
     </div>
