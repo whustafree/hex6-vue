@@ -11,9 +11,9 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
       with:
-        node-version: 20   # <--- ¡AQUÍ ESTÁ EL CAMBIO!
+        node-version: 20
     - name: Instalar dependencias
-      run: npm install
+      run: npm install --legacy-peer-deps   # <--- AQUÍ AGREGAMOS LA REGLA
     - name: Instalar robot
       run: npx playwright install --with-deps
     - name: Correr pruebas
